@@ -8,6 +8,7 @@ from django.db import transaction
 
 from apps.economy import services
 from apps.economy.models import GiftType
+from apps.economy.services import InsufficientBalanceError
 from apps.rooms.models import Room, RoomParticipant
 from apps.social.models import Follow
 from apps.users.models import User
@@ -77,13 +78,16 @@ class Command(BaseCommand):
             senders = room.participants.exclude(user=room.host).select_related("user")
             for participant in senders:
                 if random.random() < 0.6:
-                    services.send_gift(
-                        sender=participant.user,
-                        recipient=room.host,
-                        room=room,
-                        gift_type=random.choice(gift_types),
-                        idempotency_key=f"seed-{uuid.uuid4()}",
-                    )
+                    try:
+                        services.send_gift(
+                            sender=participant.user,
+                            recipient=room.host,
+                            room=room,
+                            gift_type=random.choice(gift_types),
+                            idempotency_key=f"seed-{uuid.uuid4()}",
+                        )
+                    except InsufficientBalanceError:
+                        continue  # seeded wallet ran dry; skip, don't abort
                     gift_count += 1
 
         self.stdout.write(

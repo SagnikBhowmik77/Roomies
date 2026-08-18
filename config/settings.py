@@ -10,6 +10,7 @@ Everything environment-driven (12-factor). Two profiles fall out naturally:
 """
 
 import os
+import sys
 from datetime import timedelta
 from pathlib import Path
 
@@ -117,10 +118,13 @@ else:
 
 CELERY_BROKER_URL = REDIS_URL or "memory://"
 CELERY_RESULT_BACKEND = None
-# Without a real broker, run tasks synchronously in-process so local dev
-# and the default test run need no worker.
+# Tasks run synchronously in-process when: no broker is configured (bare
+# local dev), or under pytest — a separate worker would write to the dev
+# database, not the test database. Must be decided here at import time:
+# Celery ignores app.conf mutations once namespaced Django config is loaded.
+TESTING = "pytest" in sys.modules
 CELERY_TASK_ALWAYS_EAGER = (
-    os.getenv("CELERY_TASK_ALWAYS_EAGER", "0") == "1" or not REDIS_URL
+    os.getenv("CELERY_TASK_ALWAYS_EAGER", "0") == "1" or not REDIS_URL or TESTING
 )
 CELERY_TASK_EAGER_PROPAGATES = True
 
