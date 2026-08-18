@@ -145,6 +145,7 @@ export default function Feed() {
   const [goalCoins, setGoalCoins] = useState("");
   const [goalTitle, setGoalTitle] = useState("");
   const [showGoal, setShowGoal] = useState(false);
+  const [duration, setDuration] = useState("");
   const [creating, setCreating] = useState(false);
   const [toastNode, toast] = useToast();
 
@@ -188,6 +189,7 @@ export default function Feed() {
           ...(showGoal && goalCoins
             ? { goal_coins: Number(goalCoins), goal_title: goalTitle }
             : {}),
+          ...(duration ? { duration_minutes: duration } : {}),
         },
       });
       setTitle("");
@@ -195,6 +197,7 @@ export default function Feed() {
       setGoalCoins("");
       setGoalTitle("");
       setShowGoal(false);
+      setDuration("");
       toast("You're on air — followers have been notified.");
       await load();
     } catch (err) {
@@ -255,6 +258,22 @@ export default function Feed() {
               <button disabled={creating}>{creating ? "Starting…" : "Go on air"}</button>
             </div>
             <div className="row wrap" style={{ gap: 10 }}>
+              <span className="kicker">Time box</span>
+              {[
+                { label: "Open", value: "" },
+                { label: "28 min", value: 28 },
+                { label: "60 min", value: 60 },
+              ].map((option) => (
+                <button
+                  key={option.label}
+                  type="button"
+                  className={duration === option.value ? "" : "ghost"}
+                  style={{ padding: "7px 14px", fontSize: 12.5 }}
+                  onClick={() => setDuration(option.value)}
+                >
+                  {option.label}
+                </button>
+              ))}
               <button
                 type="button"
                 className={showGoal ? "" : "ghost"}

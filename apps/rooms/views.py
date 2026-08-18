@@ -1,3 +1,5 @@
+from datetime import timedelta
+
 from django.conf import settings
 from django.core.cache import cache
 from django.db import IntegrityError, transaction
@@ -14,9 +16,12 @@ from config.pagination import DefaultCursorPagination
 from asgiref.sync import async_to_sync
 from channels.layers import get_channel_layer
 
+from rest_framework.parsers import MultiPartParser
+
 from .cache import room_list_cache_key
-from .models import Room, RoomParticipant
+from .models import Room, RoomParticipant, RoomRecording
 from .permissions import IsHostOrReadOnly
+from .services import close_room, expire_due_rooms
 from .serializers import (
     RoomMessageSerializer,
     RoomParticipantSerializer,
@@ -53,6 +58,11 @@ class InvalidRoleError(APIError):
     message = "Role must be 'speaker' or 'listener'."
 
 
+class MissingAudioError(APIError):
+    code = "missing_audio"
+    message = "No audio file was uploaded."
+
+
 class RoomCursorPagination(DefaultCursorPagination):
     ordering = "-started_at"
 
@@ -74,10 +84,12 @@ class RoomViewSet(
     filterset_fields = {"status": ["exact"], "topic": ["exact"]}
 
     def get_queryset(self):
-        # select_related folds the host into the room query (no per-row
-        # lookup); the annotate replaces a COUNT() query per room.
+        # select_related folds the host and the (reverse one-to-one)
+        # recording into the room query — without the latter, the
+        # has_recording field would fire one query per row. The annotate
+        # replaces a COUNT() query per room.
         qs = (
-            Room.objects.select_related("host")
+            Room.objects.select_related("host", "recording")
             .annotate(
                 active_participants=Count(
                     "participants", filter=Q(participants__left_at__isnull=True)
@@ -90,7 +102,25 @@ class RoomViewSet(
         search = self.request.query_params.get("search")
         if search:
             qs = qs.filter(title__icontains=search.strip())
+        # A time-boxed room whose clock ran out is no longer live, even if the
+        # worker hasn't swept it yet. Excluding it here costs nothing (same
+        # WHERE clause) and keeps the feed honest between sweeps; the Celery
+        # beat task does the authoritative close and issues the refunds.
+        if self.request.query_params.get("status") == Room.Status.LIVE:
+            qs = qs.exclude(ends_at__isnull=False, ends_at__lte=timezone.now())
         return qs
+
+    def retrieve(self, request, *args, **kwargs):
+        # one room, one cheap check: close it properly before showing it
+        room = self.get_object()
+        if (
+            room.status == Room.Status.LIVE
+            and room.ends_at
+            and room.ends_at <= timezone.now()
+        ):
+            close_room(room)
+            room = self._reload(room.pk)
+        return Response(RoomSerializer(room).data)
 
     def list(self, request, *args, **kwargs):
         # Cache only the hot path: the live feed. Ended-room history is a
@@ -107,7 +137,13 @@ class RoomViewSet(
         return response
 
     def perform_create(self, serializer):
-        room = serializer.save(host=self.request.user)
+        duration = serializer.validated_data.get("duration_minutes")
+        room = serializer.save(
+            host=self.request.user,
+            ends_at=(
+                timezone.now() + timedelta(minutes=duration) if duration else None
+            ),
+        )
         RoomParticipant.objects.create(
             room=room,
             user=self.request.user,
@@ -121,20 +157,106 @@ class RoomViewSet(
 
     @action(detail=True, methods=["post"])
     def end(self, request, pk=None):
-        from apps.economy import services as economy
-
         room = self.get_object()
         if room.status == Room.Status.ENDED:
             raise AlreadyEndedError()
-        room.end()
         # nobody keeps money for work that never happened
-        refunded_questions = economy.refund_pending_questions(room)
-        refunded_pledges = 0 if room.goal_reached_at else economy.refund_pledges(room)
-        room_ended.send(sender=Room, room=room)
+        refunds = close_room(room)
         data = RoomSerializer(self._reload(room.pk)).data
-        data["refunded_questions"] = refunded_questions
-        data["refunded_pledges"] = refunded_pledges
+        data.update(refunds)
         return Response(data)
+
+    @action(detail=True, methods=["post"], parser_classes=[MultiPartParser])
+    def recording(self, request, pk=None):
+        """Host uploads the browser-mixed audio capture of the room."""
+        room = self.get_object()
+        if room.host_id != request.user.id:
+            raise NotHostError()
+        audio = request.FILES.get("audio")
+        if not audio:
+            raise MissingAudioError()
+        RoomRecording.objects.update_or_create(
+            room=room,
+            defaults={
+                "audio": audio,
+                "uploaded_by": request.user,
+                "duration_seconds": int(float(request.data.get("duration") or 0)),
+            },
+        )
+        return Response(
+            RoomSerializer(self._reload(room.pk)).data, status=status.HTTP_201_CREATED
+        )
+
+    @action(detail=True, methods=["get"])
+    def replay(self, request, pk=None):
+        """
+        Everything needed to relive a room: the audio (if it was recorded)
+        plus one merged, timestamped timeline of what happened — chat,
+        captions, gifts and questions — each with an offset in seconds from
+        the moment the room went live.
+        """
+        room = self.get_object()
+        start = room.started_at
+
+        def offset(when):
+            return max(0, int((when - start).total_seconds()))
+
+        timeline = []
+        for m in room.messages.select_related("user"):
+            timeline.append(
+                {
+                    "kind": "chat",
+                    "at": offset(m.created_at),
+                    "who": m.user.display_name,
+                    "text": m.text,
+                }
+            )
+        for c in room.captions.select_related("user"):
+            timeline.append(
+                {
+                    "kind": "caption",
+                    "at": offset(c.created_at),
+                    "who": c.user.display_name,
+                    "text": c.text,
+                }
+            )
+        for g in room.gifts.select_related("sender", "recipient", "gift_type"):
+            timeline.append(
+                {
+                    "kind": "gift",
+                    "at": offset(g.created_at),
+                    "who": g.sender.display_name,
+                    "text": (
+                        f"sent {g.gift_type.name} "
+                        f"({g.coins}) to "
+                        f"{g.recipient.display_name if g.recipient else 'the stage'}"
+                    ),
+                }
+            )
+        for q in room.questions.select_related("asker"):
+            timeline.append(
+                {
+                    "kind": "question",
+                    "at": offset(q.created_at),
+                    "who": q.asker.display_name,
+                    "text": f"[{q.coins} coins] {q.text}",
+                }
+            )
+        timeline.sort(key=lambda row: row["at"])
+
+        recording = getattr(room, "recording", None)
+        return Response(
+            {
+                "room": RoomSerializer(self._reload(room.pk)).data,
+                "audio_url": (
+                    request.build_absolute_uri(recording.audio.url)
+                    if recording
+                    else None
+                ),
+                "duration_seconds": recording.duration_seconds if recording else 0,
+                "timeline": timeline,
+            }
+        )
 
     @action(detail=True, methods=["post"])
     def join(self, request, pk=None):

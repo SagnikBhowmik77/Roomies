@@ -88,6 +88,24 @@ class RoomConsumer(AsyncJsonWebsocketConsumer):
                     },
                 )
 
+        elif kind == "caption":
+            # Speech-to-text produced in the speaker's own browser. Broadcast
+            # immediately for live accessibility; persist so the replay has a
+            # transcript.
+            text = (content.get("text") or "").strip()[:2000]
+            if not text:
+                return
+            await self._save_caption(text, content.get("language") or "en-IN")
+            await self.channel_layer.group_send(
+                self.group,
+                {
+                    "type": "room.event",
+                    "event": "caption",
+                    "user": public_user(self.user),
+                    "text": text,
+                },
+            )
+
         elif kind in ("speaking", "mic", "reaction"):
             await self.channel_layer.group_send(
                 self.group,
@@ -109,4 +127,12 @@ class RoomConsumer(AsyncJsonWebsocketConsumer):
 
         return RoomMessage.objects.create(
             room_id=self.room_id, user=self.user, text=text
+        )
+
+    @database_sync_to_async
+    def _save_caption(self, text, language):
+        from .models import Caption
+
+        return Caption.objects.create(
+            room_id=self.room_id, user=self.user, text=text, language=language
         )

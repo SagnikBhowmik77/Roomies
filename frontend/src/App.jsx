@@ -1,4 +1,5 @@
-import { Navigate, Route, Routes } from "react-router-dom";
+import { Navigate, Route, Routes, useLocation } from "react-router-dom";
+import ErrorBoundary from "./components/ErrorBoundary.jsx";
 import Navbar from "./components/Navbar.jsx";
 import { useAuth } from "./auth.jsx";
 import Login from "./pages/Login.jsx";
@@ -7,9 +8,11 @@ import Room from "./pages/Room.jsx";
 import Wallet from "./pages/Wallet.jsx";
 import Profile from "./pages/Profile.jsx";
 import Notifications from "./pages/Notifications.jsx";
+import Replay from "./pages/Replay.jsx";
 
 export default function App() {
   const { user, loading } = useAuth();
+  const location = useLocation();
 
   if (loading) return <div className="shell dim" style={{ paddingTop: 60 }}>Loading…</div>;
 
@@ -24,15 +27,19 @@ export default function App() {
   return (
     <div className="shell">
       <Navbar />
-      <Routes>
-        <Route path="/" element={<Feed />} />
-        <Route path="/rooms/:id" element={<Room />} />
-        <Route path="/wallet" element={<Wallet />} />
-        <Route path="/users/:id" element={<Profile />} />
-        <Route path="/me" element={<Profile me />} />
-        <Route path="/notifications" element={<Notifications />} />
-        <Route path="*" element={<Navigate to="/" />} />
-      </Routes>
+      {/* keyed on the route so recovering is as simple as navigating away */}
+      <ErrorBoundary key={location.pathname}>
+        <Routes>
+          <Route path="/" element={<Feed />} />
+          <Route path="/rooms/:id" element={<Room />} />
+          <Route path="/rooms/:id/replay" element={<Replay />} />
+          <Route path="/wallet" element={<Wallet />} />
+          <Route path="/users/:id" element={<Profile />} />
+          <Route path="/me" element={<Profile me />} />
+          <Route path="/notifications" element={<Notifications />} />
+          <Route path="*" element={<Navigate to="/" />} />
+        </Routes>
+      </ErrorBoundary>
     </div>
   );
 }

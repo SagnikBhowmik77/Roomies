@@ -25,6 +25,10 @@ class Room(models.Model):
     goal_title = models.CharField(max_length=120, blank=True)
     pledged_coins = models.PositiveIntegerField(default=0)
     goal_reached_at = models.DateTimeField(null=True, blank=True)
+    # Time-boxed rooms: a hard stop, set at creation. Scarcity is the point —
+    # a room that must end at 28 minutes starts on time and stays focused.
+    duration_minutes = models.PositiveSmallIntegerField(null=True, blank=True)
+    ends_at = models.DateTimeField(null=True, blank=True, db_index=True)
     # Denormalised counter, maintained under the same row lock as joins/leaves.
     # Source of truth remains RoomParticipant; this exists so the feed never
     # has to COUNT() per room.
@@ -43,6 +47,48 @@ class Room(models.Model):
         self.ended_at = timezone.now()
         self.save(update_fields=("status", "ended_at"))
         self.participants.filter(left_at__isnull=True).update(left_at=self.ended_at)
+
+
+class Caption(models.Model):
+    """
+    A line of live speech-to-text.
+
+    Recognition runs in the speaker's own browser (Web Speech API), so this
+    costs nothing to operate — no ASR vendor, no audio leaving the peer mesh.
+    Captions are broadcast for accessibility in the moment and persisted so
+    the replay has a searchable transcript.
+    """
+
+    room = models.ForeignKey(Room, on_delete=models.CASCADE, related_name="captions")
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="+"
+    )
+    text = models.TextField()
+    language = models.CharField(max_length=12, default="en-IN")
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        indexes = [models.Index(fields=("room", "created_at"))]
+
+
+class RoomRecording(models.Model):
+    """
+    An audio recording of a room, captured client-side.
+
+    The host's browser mixes every peer stream into one track with the Web
+    Audio API and uploads the result once — the server never has to join the
+    media path, which is what keeps recording affordable at this stage.
+    """
+
+    room = models.OneToOneField(
+        Room, on_delete=models.CASCADE, related_name="recording"
+    )
+    uploaded_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, related_name="+"
+    )
+    audio = models.FileField(upload_to="recordings/")
+    duration_seconds = models.PositiveIntegerField(default=0)
+    created_at = models.DateTimeField(auto_now_add=True)
 
 
 class RoomMessage(models.Model):

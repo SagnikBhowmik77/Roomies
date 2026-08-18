@@ -17,6 +17,7 @@ class RoomSerializer(serializers.ModelSerializer):
     host = UserPublicSerializer(read_only=True)
     active_participants = serializers.IntegerField(read_only=True)
     goal_reached = serializers.SerializerMethodField()
+    has_recording = serializers.SerializerMethodField()
 
     class Meta:
         model = Room
@@ -36,6 +37,9 @@ class RoomSerializer(serializers.ModelSerializer):
             "pledged_coins",
             "goal_reached_at",
             "goal_reached",
+            "duration_minutes",
+            "ends_at",
+            "has_recording",
         )
         read_only_fields = (
             "status",
@@ -44,10 +48,19 @@ class RoomSerializer(serializers.ModelSerializer):
             "listener_count",
             "pledged_coins",
             "goal_reached_at",
+            "ends_at",
         )
 
     def get_goal_reached(self, obj) -> bool:
         return obj.goal_reached_at is not None
+
+    def get_has_recording(self, obj) -> bool:
+        return hasattr(obj, "recording")
+
+    def validate_duration_minutes(self, value):
+        if value is not None and not 1 <= value <= 240:
+            raise serializers.ValidationError("Duration must be 1–240 minutes.")
+        return value
 
     def validate_max_seats(self, value):
         if not 2 <= value <= 50:

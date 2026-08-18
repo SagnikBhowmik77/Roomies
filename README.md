@@ -3,7 +3,7 @@
 A full-stack app for live audio rooms — real-time voice (WebRTC), live chat and
 presence (websockets), follows, virtual gifting with a double-entry wallet ledger,
 and moderation. Django REST + Channels backend, React frontend.
-**Postgres + Redis + Celery, 103 tests, Dockerised.**
+**Postgres + Redis + Celery, 117 tests, Dockerised.**
 
 Built the way live social products (think FRND / Clubhouse) actually work: people join
 audio rooms, follow hosts, send virtual gifts, and get moderated. The gifting economy is
@@ -23,7 +23,7 @@ destroyed, or double-spent under concurrent load.
 | Cache     | Redis (versioned live-feed cache, 30 s TTL) |
 | Async     | Celery + Redis broker (notification fan-out) |
 | Auth      | Phone-first OTP → JWT (simplejwt) |
-| Testing   | pytest + pytest-django + factory_boy — 103 tests |
+| Testing   | pytest + pytest-django + factory_boy — 117 tests |
 | Container | Docker + docker-compose          |
 | CI        | GitHub Actions (Postgres + Redis service containers) |
 
@@ -118,6 +118,8 @@ Interactive docs at `/api/v1/docs/`, OpenAPI schema at `/api/v1/schema/`.
 | POST | `/api/v1/rooms/{id}/questions/{qid}/decline/` | Refund the asker |
 | GET/POST | `/api/v1/rooms/{id}/pledges/` | Pledge toward a room goal (all-or-nothing escrow) |
 | GET | `/api/v1/users/{id}/stats/` | Public, ledger-derived host reputation |
+| POST | `/api/v1/rooms/{id}/recording/` | Upload the browser-mixed room audio (host only) |
+| GET | `/api/v1/rooms/{id}/replay/` | Audio URL + merged timeline (chat, captions, gifts, questions) |
 | GET | `/api/v1/rooms/{id}/gifts/history/` | Gifts sent in a room |
 | GET | `/api/v1/rooms/{id}/messages/` | Chat history (last 50) |
 | POST | `/api/v1/rooms/{id}/participants/{uid}/role/` | Promote/demote speaker (host only) |
@@ -205,6 +207,27 @@ Three product features fall out of this one primitive:
   measured from `RoomParticipant.speaker_since`. Shares use the
   largest-remainder method so the parts sum to exactly the gift value —
   naive rounding would create or destroy coins, which the ledger forbids.
+
+### Recording, captions and time-boxing without a media budget
+
+Three features that normally need expensive infrastructure, built so they
+cost nothing to run:
+
+- **Recordings & replay** — the host's browser mixes every peer stream into
+  one track with the Web Audio API and uploads a single file when they stop.
+  The server never joins the media path. The replay page pairs that audio
+  with a merged, timestamped timeline of everything that happened (chat,
+  captions, gifts, questions); clicking any line seeks the audio to that
+  moment. Rooms with no recording still have a complete transcript.
+- **Live captions** — speech recognition runs in the speaker's own browser
+  (Web Speech API), so there is no ASR vendor and no per-minute cost. Final
+  phrases are broadcast over the existing room websocket for accessibility
+  and persisted to build the replay transcript.
+- **Time-boxed rooms** — an optional hard stop. Expired rooms are excluded
+  from the live feed in the same query that builds it (no extra cost),
+  closed on first retrieve, and swept authoritatively by a Celery task that
+  runs the same `close_room` path as a manual end — so escrowed question
+  stakes and unfunded pledges are refunded exactly the same way.
 
 ### Idempotency keys
 

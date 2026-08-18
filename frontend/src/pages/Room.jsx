@@ -10,6 +10,7 @@ import {
   SendIcon,
   ShareIcon,
   UsersIcon,
+  WaveIcon,
 } from "../components/Icons.jsx";
 import { useRoomLive } from "../live/useRoomLive.js";
 import GoalPanel from "./GoalPanel.jsx";
@@ -92,7 +93,20 @@ export default function Room() {
     micStates,
     micOn,
     toggleMic,
+    captions,
+    captionsOn,
+    toggleCaptions,
+    recording,
+    startRecording,
+    stopRecording,
   } = useRoomLive(Number(id), user.id, { onPresence: () => load().catch(() => {}) });
+
+  // countdown for time-boxed rooms
+  const [now, setNow] = useState(Date.now());
+  useEffect(() => {
+    const t = setInterval(() => setNow(Date.now()), 1000);
+    return () => clearInterval(t);
+  }, []);
 
   useEffect(() => {
     load().catch(() => {});
@@ -122,6 +136,37 @@ export default function Room() {
   const seated = Boolean(me);
   const isLive = room.status === "live";
   const canSpeak = me && (me.role === "host" || me.role === "speaker");
+
+  const secondsLeft = room.ends_at
+    ? Math.max(0, Math.floor((new Date(room.ends_at) - now) / 1000))
+    : null;
+  const countdown =
+    secondsLeft === null
+      ? null
+      : `${Math.floor(secondsLeft / 60)}:${String(secondsLeft % 60).padStart(2, "0")}`;
+
+  const onToggleCaptions = () => {
+    try {
+      toggleCaptions();
+    } catch (err) {
+      toast(err.message, true);
+    }
+  };
+
+  const onToggleRecording = async () => {
+    try {
+      if (recording) {
+        const result = await stopRecording();
+        toast(`Recording saved (${result.seconds}s).`);
+        await load();
+      } else {
+        startRecording();
+        toast("Recording — every live mic is being mixed in.");
+      }
+    } catch (err) {
+      toast(err.message, true);
+    }
+  };
 
   const act = (fn, okMsg) => async () => {
     setBusy(true);
@@ -201,6 +246,12 @@ export default function Room() {
               <span className={`live-pill${connected ? " on" : ""}`}>
                 {connected ? "live" : "connecting"}
               </span>
+              {recording && (
+                <span className="row" style={{ gap: 6 }}>
+                  <span className="rec-dot" />
+                  <span className="kicker" style={{ color: "var(--live)" }}>rec</span>
+                </span>
+              )}
             </div>
             <h1 className="display" style={{ fontSize: 34 }}>{room.title}</h1>
             <p className="dim" style={{ marginTop: 8 }}>
@@ -212,6 +263,12 @@ export default function Room() {
             </p>
           </div>
           <div className="row">
+            {isLive && countdown && (
+              <span className={`countdown${secondsLeft < 120 ? " urgent" : ""}`}>
+                {countdown}
+                <small>left</small>
+              </span>
+            )}
             {canSpeak && isLive && (
               <button
                 className={`mic${micOn ? "" : " off"}`}
@@ -224,6 +281,29 @@ export default function Room() {
               >
                 {micOn ? <MicIcon size={18} /> : <MicOffIcon size={18} />}
               </button>
+            )}
+            {isLive && seated && (
+              <button
+                className={captionsOn ? "" : "ghost"}
+                onClick={onToggleCaptions}
+                title="Live captions (speech recognition runs in your browser)"
+              >
+                <WaveIcon size={14} /> CC
+              </button>
+            )}
+            {isLive && isHost && (
+              <button
+                className={recording ? "danger" : "ghost"}
+                onClick={onToggleRecording}
+                title="Record the room"
+              >
+                {recording ? "Stop rec" : "Record"}
+              </button>
+            )}
+            {(room.has_recording || !isLive) && (
+              <Link to={`/rooms/${room.id}/replay`}>
+                <button className="ghost">Replay</button>
+              </Link>
             )}
             <button className="ghost icon-btn" onClick={shareRoom} title="Copy room link">
               <ShareIcon size={15} />
@@ -374,7 +454,15 @@ export default function Room() {
                   {gifts.map((g) => (
                     <tr key={g.id}>
                       <td>{GIFT_EMOJI[g.gift_type.name] || "🎁"} {g.gift_type.name}</td>
-                      <td className="dim">{g.sender.display_name} → {g.recipient.display_name}</td>
+                      <td className="dim">
+                        {g.sender.display_name} →{" "}
+                        {/* recipient is null for room gifts: split across the stage */}
+                        {g.recipient ? (
+                          g.recipient.display_name
+                        ) : (
+                          <span style={{ color: "var(--amber)" }}>the stage</span>
+                        )}
+                      </td>
                       <td className="delta-pos">{g.coins}</td>
                       <td className="faint" style={{ textAlign: "right" }}>{timeAgo(g.created_at)}</td>
                     </tr>
@@ -429,6 +517,22 @@ export default function Room() {
           )}
         </div>
       </div>
+
+      {captionsOn && (
+        <div className="caption-bar">
+          {captions.length === 0 ? (
+            <p className="faint" style={{ margin: 0 }}>
+              Listening… captions appear here and are shared with the room.
+            </p>
+          ) : (
+            captions.slice(-4).map((c) => (
+              <div className="line" key={c.id}>
+                <b>{c.who}:</b> {c.text}
+              </div>
+            ))
+          )}
+        </div>
+      )}
 
       <div className="float-reactions">
         {reactions.map((r) => (

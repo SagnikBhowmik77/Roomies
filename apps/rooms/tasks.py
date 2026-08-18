@@ -2,6 +2,14 @@ from celery import shared_task
 
 
 @shared_task
+def close_expired_rooms():
+    """Beat task: end time-boxed rooms whose clock has run out."""
+    from .services import expire_due_rooms
+
+    return expire_due_rooms()
+
+
+@shared_task
 def notify_followers_of_live_room(room_id):
     """Create a WENT_LIVE notification for every follower of the host."""
     from apps.social.models import Follow, Notification
