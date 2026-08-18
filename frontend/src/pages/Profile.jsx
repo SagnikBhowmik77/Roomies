@@ -6,14 +6,17 @@ import { Avatar, useToast } from "../components/helpers.jsx";
 
 function UserList({ title, rows }) {
   return (
-    <div className="card stack" style={{ flex: 1 }}>
-      <h3>{title} ({rows.length})</h3>
-      {rows.length === 0 && <p className="dim">Nobody yet.</p>}
+    <div className="card stack" style={{ flex: 1, gap: 12 }}>
+      <div className="row between">
+        <h3>{title}</h3>
+        <span className="faint">{rows.length}</span>
+      </div>
+      {rows.length === 0 && <p className="faint">Nobody yet.</p>}
       {rows.map(({ user: u }) => (
         <Link key={u.id} to={`/users/${u.id}`}>
-          <div className="row">
+          <div className="row" style={{ gap: 10 }}>
             <Avatar name={u.display_name} sm />
-            <span style={{ fontSize: 14 }}>{u.display_name}</span>
+            <span style={{ fontSize: 13.5, fontWeight: 600 }}>{u.display_name}</span>
           </div>
         </Link>
       ))}
@@ -54,7 +57,7 @@ export default function Profile({ me = false }) {
     load().catch(() => {});
   }, [load]);
 
-  if (!profile) return <p className="dim">Loading profile…</p>;
+  if (!profile) return <div className="skeleton" />;
 
   const toggleFollow = async () => {
     setBusy(true);
@@ -88,34 +91,48 @@ export default function Profile({ me = false }) {
   };
 
   return (
-    <div className="stack">
-      <div className="card row between">
-        <div className="row">
-          <Avatar name={profile.display_name} />
+    <div className="page stack" style={{ gap: 14 }}>
+      <div className="card row between wrap" style={{ padding: 28 }}>
+        <div className="row" style={{ gap: 18 }}>
+          <Avatar name={profile.display_name} lg />
           <div>
-            <h1 style={{ fontSize: 22 }}>{profile.display_name || "Unnamed"}</h1>
-            <p className="dim">
-              {profile.country && `${profile.country} · `}joined{" "}
-              {new Date(profile.created_at).toLocaleDateString()}
+            <h1 className="display" style={{ fontSize: 32 }}>
+              {profile.display_name || "Unnamed"}
+            </h1>
+            <p className="faint" style={{ marginTop: 4 }}>
+              {profile.country && `${profile.country} · `}
+              joined {new Date(profile.created_at).toLocaleDateString()}
+              {" · "}{followers.length} followers · {following.length} following
             </p>
           </div>
         </div>
         {!isSelf && (
           <button className={isFollowing ? "ghost" : ""} onClick={toggleFollow} disabled={busy}>
-            {isFollowing ? "Unfollow" : "Follow"}
+            {isFollowing ? "Following ✓" : "Follow"}
           </button>
         )}
       </div>
 
       {isSelf && (
-        <form onSubmit={saveProfile} className="card row" style={{ gap: 10 }}>
-          <input value={name} onChange={(e) => setName(e.target.value)} placeholder="Display name" style={{ flex: 2 }} />
-          <input value={country} onChange={(e) => setCountry(e.target.value)} placeholder="Country (IN)" maxLength={2} style={{ flex: 1 }} />
+        <form onSubmit={saveProfile} className="card row wrap" style={{ gap: 10 }}>
+          <input
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            placeholder="Display name"
+            style={{ flex: 2, minWidth: 160 }}
+          />
+          <input
+            value={country}
+            onChange={(e) => setCountry(e.target.value)}
+            placeholder="Country (IN)"
+            maxLength={2}
+            style={{ flex: 1, minWidth: 90 }}
+          />
           <button disabled={busy}>Save</button>
         </form>
       )}
 
-      <div className="row" style={{ alignItems: "stretch" }}>
+      <div className="row wrap" style={{ alignItems: "stretch" }}>
         <UserList title="Followers" rows={followers} />
         <UserList title="Following" rows={following} />
       </div>

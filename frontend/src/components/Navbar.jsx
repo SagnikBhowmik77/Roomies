@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { NavLink, Link } from "react-router-dom";
 import { api } from "../api.js";
 import { useAuth } from "../auth.jsx";
+import { CoinIcon, LogoutIcon } from "./Icons.jsx";
 
 export default function Navbar() {
   const { user, logout } = useAuth();
@@ -33,20 +34,25 @@ export default function Navbar() {
   return (
     <nav className="nav">
       <Link to="/" className="brand">
-        room<span>ies</span>
+        room<em>ies</em>
       </Link>
       <div className="links">
         <NavLink to="/" end>Rooms</NavLink>
         <NavLink to="/wallet">Wallet</NavLink>
         <NavLink to="/notifications">
-          Notifications
+          Alerts
           {hasNews && <span className="dot" />}
         </NavLink>
         <NavLink to="/me">Profile</NavLink>
       </div>
-      <Link to="/wallet" className="coins">🪙 {balance ?? "…"}</Link>
-      <span className="dim">{user.display_name || user.phone}</span>
-      <button className="ghost" onClick={logout}>Log out</button>
+      <Link to="/wallet" className="coins">
+        <CoinIcon size={14} />
+        {balance ?? "…"}
+      </Link>
+      <span className="who">{user.display_name || user.phone}</span>
+      <button className="ghost icon-btn" onClick={logout} title="Log out">
+        <LogoutIcon size={15} />
+      </button>
     </nav>
   );
 }

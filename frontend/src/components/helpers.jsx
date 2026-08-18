@@ -1,9 +1,22 @@
 import { useCallback, useState } from "react";
 
-export function Avatar({ name, sm, lg }) {
+// Deterministic per-user hue: the same person is always the same colour,
+// everywhere in the app.
+function hueOf(name) {
+  let h = 0;
+  for (const c of name || "?") h = (h * 31 + c.codePointAt(0)) % 360;
+  return h;
+}
+
+export function Avatar({ name, sm, lg, children }) {
   const initial = (name || "?").trim().charAt(0).toUpperCase();
   const size = sm ? " sm" : lg ? " lg" : "";
-  return <div className={`avatar${size}`}>{initial}</div>;
+  return (
+    <div className={`avatar${size}`} style={{ "--hue": hueOf(name) }}>
+      {initial}
+      {children}
+    </div>
+  );
 }
 
 export function useToast() {

@@ -2,24 +2,34 @@ import { useCallback, useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { api } from "../api.js";
 import { Avatar, timeAgo, useToast } from "../components/helpers.jsx";
+import { Equalizer, UsersIcon } from "../components/Icons.jsx";
 
 function RoomCard({ room }) {
+  const live = room.status === "live";
   return (
     <Link to={`/rooms/${room.id}`}>
       <div className="card room-card">
         <div className="row between">
-          <span className={`badge ${room.status}`}>{room.status.toUpperCase()}</span>
+          <div className="row" style={{ gap: 8 }}>
+            {live ? <Equalizer active /> : null}
+            <span className={`badge ${room.status}`}>
+              {live ? "On air" : "Ended"}
+            </span>
+          </div>
           {room.topic && <span className="badge topic">{room.topic}</span>}
         </div>
-        <h2>{room.title}</h2>
-        <div className="row">
-          <Avatar name={room.host.display_name} sm />
-          <div>
-            <div style={{ fontSize: 14, fontWeight: 600 }}>{room.host.display_name}</div>
-            <div className="dim">
-              {room.active_participants}/{room.max_seats} seats · {timeAgo(room.started_at)}
-            </div>
+        <div className="title">{room.title}</div>
+        <div className="row between">
+          <div className="row" style={{ gap: 9 }}>
+            <Avatar name={room.host.display_name} sm />
+            <span className="dim" style={{ fontWeight: 600 }}>
+              {room.host.display_name}
+            </span>
           </div>
+          <span className="meta">
+            <UsersIcon size={13} />
+            {room.active_participants}/{room.max_seats} · {timeAgo(room.started_at)}
+          </span>
         </div>
       </div>
     </Link>
@@ -58,7 +68,7 @@ export default function Feed() {
       });
       setTitle("");
       setNewTopic("");
-      toast("You're live! Followers have been notified.");
+      toast("You're on air — followers have been notified.");
       await load();
     } catch (err) {
       toast(err.message, true);
@@ -68,24 +78,34 @@ export default function Feed() {
   };
 
   return (
-    <div className="stack">
-      <div className="row between wrap">
+    <div className="page">
+      <div className="feed-head">
         <div>
-          <h1>{status === "live" ? "Live now" : "Past rooms"}</h1>
-          <p className="dim">
+          <div className="kicker" style={{ marginBottom: 8 }}>
             {status === "live"
-              ? `${rooms?.length ?? "…"} rooms live · refreshes every 10 seconds`
-              : "Rooms that have ended."}
-          </p>
+              ? `${rooms?.length ?? "—"} rooms on air`
+              : "the archive"}
+          </div>
+          <h1 className="display">
+            {status === "live" ? (
+              <>Happening <em>now.</em></>
+            ) : (
+              <>Past <em>rooms.</em></>
+            )}
+          </h1>
         </div>
         <div className="row">
           <button
             className="ghost"
             onClick={() => setStatus(status === "live" ? "ended" : "live")}
           >
-            {status === "live" ? "History" : "← Live rooms"}
+            {status === "live" ? "History" : "Back to live"}
           </button>
-          <select value={topic} onChange={(e) => setTopic(e.target.value)} style={{ width: 150 }}>
+          <select
+            value={topic}
+            onChange={(e) => setTopic(e.target.value)}
+            style={{ width: 140 }}
+          >
             <option value="">All topics</option>
             {["music", "tech", "gaming", "comedy", "bollywood", "cricket"].map((t) => (
               <option key={t} value={t}>{t}</option>
@@ -94,38 +114,41 @@ export default function Feed() {
         </div>
       </div>
 
-      <form onSubmit={createRoom} className="card row" style={{ gap: 10 }}>
-        <input
-          placeholder="Start your own room — give it a title…"
-          value={title}
-          onChange={(e) => setTitle(e.target.value)}
-          required
-          style={{ flex: 2 }}
-        />
-        <input
-          placeholder="topic (optional)"
-          value={newTopic}
-          onChange={(e) => setNewTopic(e.target.value)}
-          style={{ flex: 1 }}
-        />
-        <button disabled={creating}>{creating ? "Starting…" : "Go live"}</button>
-      </form>
+      <div className="stack">
+        <form onSubmit={createRoom} className="card go-live">
+          <input
+            placeholder="Start a room — what do you want to talk about?"
+            value={title}
+            onChange={(e) => setTitle(e.target.value)}
+            required
+          />
+          <input
+            placeholder="Topic (optional)"
+            value={newTopic}
+            onChange={(e) => setNewTopic(e.target.value)}
+          />
+          <button disabled={creating}>{creating ? "Starting…" : "Go on air"}</button>
+        </form>
 
-      {rooms === null ? (
-        <div className="grid">
-          {[...Array(6)].map((_, i) => <div className="skeleton" key={i} />)}
-        </div>
-      ) : rooms.length === 0 ? (
-        <div className="card dim" style={{ textAlign: "center", padding: 40 }}>
-          {status === "live" ? "🎙️ No live rooms right now — start one above!" : "No ended rooms yet."}
-        </div>
-      ) : (
-        <div className="grid">
-          {rooms.map((r) => (
-            <RoomCard key={r.id} room={r} />
-          ))}
-        </div>
-      )}
+        {rooms === null ? (
+          <div className="grid">
+            {[...Array(6)].map((_, i) => <div className="skeleton" key={i} />)}
+          </div>
+        ) : rooms.length === 0 ? (
+          <div className="card empty">
+            <div className="display">
+              {status === "live" ? <>It's quiet <em>in here.</em></> : <>Nothing yet.</>}
+            </div>
+            {status === "live" && "Be the first — start a room above."}
+          </div>
+        ) : (
+          <div className="grid">
+            {rooms.map((r) => (
+              <RoomCard key={r.id} room={r} />
+            ))}
+          </div>
+        )}
+      </div>
       {toastNode}
     </div>
   );

@@ -1,13 +1,14 @@
 import { useState } from "react";
 import { api } from "../api.js";
 import { useAuth } from "../auth.jsx";
+import { Equalizer, RadioIcon } from "../components/Icons.jsx";
 
 export default function Login() {
   const { login } = useAuth();
   const [phone, setPhone] = useState("+919876500000");
   const [code, setCode] = useState("");
   const [debugCode, setDebugCode] = useState(null);
-  const [stage, setStage] = useState("phone"); // phone -> otp
+  const [stage, setStage] = useState("phone");
   const [error, setError] = useState(null);
   const [busy, setBusy] = useState(false);
 
@@ -48,29 +49,37 @@ export default function Login() {
   };
 
   return (
-    <div className="login-wrap stack">
-      <div>
-        <h1>
-          room<span style={{ color: "var(--accent)" }}>ies</span>
-        </h1>
-        <p className="dim">Live audio rooms. Log in with your phone.</p>
+    <div className="login-wrap page">
+      <div className="login-mark">
+        <RadioIcon size={17} />
+        <span className="kicker" style={{ color: "var(--live)" }}>On air</span>
+        <Equalizer active />
       </div>
+      <h1 className="display">
+        Rooms worth
+        <br />
+        <em>listening</em> to.
+      </h1>
+      <p className="dim" style={{ margin: "14px 0 30px", maxWidth: 320 }}>
+        Live audio rooms — host, talk, and send gifts. Log in with just your
+        phone number.
+      </p>
 
       <div className="card stack">
         {stage === "phone" ? (
           <form onSubmit={requestOtp} className="stack">
-            <label className="dim">Phone number</label>
+            <label className="kicker">Phone number</label>
             <input
               value={phone}
               onChange={(e) => setPhone(e.target.value)}
               placeholder="+919876500000"
               autoFocus
             />
-            <button disabled={busy}>{busy ? "Sending…" : "Send OTP"}</button>
+            <button disabled={busy}>{busy ? "Sending…" : "Send code"}</button>
           </form>
         ) : (
           <form onSubmit={verifyOtp} className="stack">
-            <label className="dim">Enter the 6-digit code sent to {phone}</label>
+            <label className="kicker">Code sent to {phone}</label>
             {debugCode && (
               <div className="otp-hint">
                 Dev mode — your code is <b>{debugCode}</b> (pre-filled)
@@ -82,7 +91,7 @@ export default function Login() {
               maxLength={6}
               autoFocus
             />
-            <button disabled={busy}>{busy ? "Verifying…" : "Verify & log in"}</button>
+            <button disabled={busy}>{busy ? "Verifying…" : "Enter"}</button>
             <button type="button" className="ghost" onClick={() => setStage("phone")}>
               Change number
             </button>
@@ -91,9 +100,8 @@ export default function Login() {
         {error && <div className="error">{error}</div>}
       </div>
 
-      <p className="dim">
-        Demo accounts: +919876500000 … +919876500011 · new numbers create a fresh
-        account automatically.
+      <p className="faint" style={{ marginTop: 18 }}>
+        Demo accounts: +919876500000 – 11 · any new number creates an account.
       </p>
     </div>
   );

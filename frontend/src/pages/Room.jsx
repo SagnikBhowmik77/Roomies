@@ -3,29 +3,40 @@ import { Link, useNavigate, useParams } from "react-router-dom";
 import { api, idempotencyKey } from "../api.js";
 import { useAuth } from "../auth.jsx";
 import { Avatar, GIFT_EMOJI, timeAgo, useToast } from "../components/helpers.jsx";
+import {
+  GiftIcon,
+  MicIcon,
+  MicOffIcon,
+  SendIcon,
+  ShareIcon,
+  UsersIcon,
+} from "../components/Icons.jsx";
 import { useRoomLive } from "../live/useRoomLive.js";
 
 const QUICK_REACTIONS = ["👏", "🔥", "😂", "❤️", "🎉"];
 
-function Seat({ p, isSpeaking, micOn, isHost, canManage, onRole }) {
+function Seat({ p, isSpeaking, micOn, canManage, onRole }) {
   return (
     <div className={`seat${isSpeaking ? " speaking" : ""}`}>
-      <div style={{ position: "relative" }}>
-        <Link to={`/users/${p.user.id}`}>
-          <Avatar name={p.user.display_name} lg />
-        </Link>
-        <span className="mic-tag">{micOn ? "🎙️" : "🔇"}</span>
-      </div>
+      <Link to={`/users/${p.user.id}`}>
+        <Avatar name={p.user.display_name} lg>
+          <span className={`mic-tag${micOn ? " on" : ""}`}>
+            {micOn ? <MicIcon size={11} /> : <MicOffIcon size={11} />}
+          </span>
+        </Avatar>
+      </Link>
       <span className="name">{p.user.display_name}</span>
-      <span className={`badge role ${p.role}`}>
-        {p.role === "host" ? "👑 host" : p.role}
-      </span>
+      <span className={`badge role ${p.role}`}>{p.role}</span>
       {canManage && p.role !== "host" && (
         <div className="host-tools">
           {p.role === "listener" ? (
-            <button className="ghost" onClick={() => onRole(p.user.id, "speaker")}>+ Speaker</button>
+            <button className="ghost" onClick={() => onRole(p.user.id, "speaker")}>
+              Invite up
+            </button>
           ) : (
-            <button className="ghost" onClick={() => onRole(p.user.id, "listener")}>Demote</button>
+            <button className="ghost" onClick={() => onRole(p.user.id, "listener")}>
+              Move down
+            </button>
           )}
         </div>
       )}
@@ -77,9 +88,7 @@ export default function Room() {
     load().catch(() => {});
     api("/api/v1/gift-types/").then(setGiftTypes).catch(() => {});
     api(`/api/v1/rooms/${id}/messages/`)
-      .then((history) =>
-        setMessages(history.map((m) => ({ ...m, event: "chat" })))
-      )
+      .then((history) => setMessages(history.map((m) => ({ ...m, event: "chat" }))))
       .catch(() => {});
   }, [id, load, setMessages]);
 
@@ -95,7 +104,7 @@ export default function Room() {
     return Object.entries(totals).sort((a, b) => b[1] - a[1]).slice(0, 3);
   }, [gifts]);
 
-  if (!room) return <div className="skeleton" />;
+  if (!room) return <div className="skeleton" style={{ height: 420 }} />;
 
   const me = participants.find((p) => p.user.id === user.id);
   const isHost = room.host.id === user.id;
@@ -118,10 +127,7 @@ export default function Room() {
 
   const join = act(() => api(`/api/v1/rooms/${id}/join/`, { method: "POST" }));
   const leave = act(() => api(`/api/v1/rooms/${id}/leave/`, { method: "POST" }));
-  const end = act(
-    () => api(`/api/v1/rooms/${id}/end/`, { method: "POST" }),
-    "Room ended."
-  );
+  const end = act(() => api(`/api/v1/rooms/${id}/end/`, { method: "POST" }), "Room ended.");
   const setRole = (userId, role) =>
     act(() =>
       api(`/api/v1/rooms/${id}/participants/${userId}/role/`, {
@@ -132,7 +138,7 @@ export default function Room() {
 
   const shareRoom = async () => {
     await navigator.clipboard.writeText(window.location.href);
-    toast("Room link copied!");
+    toast("Room link copied.");
   };
 
   const submitChat = (e) => {
@@ -152,7 +158,7 @@ export default function Room() {
         headers: { "Idempotency-Key": idempotencyKey() },
       });
       sendReaction(GIFT_EMOJI[selectedGift.name] || "🎁");
-      toast(`Sent a ${selectedGift.name}! ${GIFT_EMOJI[selectedGift.name] || "🎁"}`);
+      toast(`${GIFT_EMOJI[selectedGift.name] || "🎁"} ${selectedGift.name} sent`);
       setSelectedGift(null);
       await load();
     } catch (err) {
@@ -167,53 +173,57 @@ export default function Room() {
     }
   };
 
-  const micButton = canSpeak && isLive && (
-    <button
-      className={`mic${micOn ? "" : " off"}`}
-      title={micOn ? "Mute microphone" : "Turn on microphone"}
-      onClick={() =>
-        toggleMic().catch(() =>
-          toast("Microphone access was blocked by the browser.", true)
-        )
-      }
-    >
-      {micOn ? "🎙️" : "🔇"}
-    </button>
-  );
-
   return (
-    <div className="stack">
-      <div className="card hero row between wrap">
-        <div>
-          <div className="row" style={{ marginBottom: 8 }}>
-            <span className={`badge ${room.status}`}>{room.status}</span>
-            {room.topic && <span className="badge topic">{room.topic}</span>}
-            <span className={`live-pill${connected ? " on" : ""}`}>
-              {connected ? "realtime connected" : "connecting…"}
-            </span>
+    <div className="page">
+      <div className="card room-hero">
+        <div className="row between wrap" style={{ alignItems: "flex-start" }}>
+          <div>
+            <div className="row" style={{ marginBottom: 12 }}>
+              <span className={`badge ${room.status}`}>
+                {isLive ? "On air" : "Ended"}
+              </span>
+              {room.topic && <span className="badge topic">{room.topic}</span>}
+              <span className={`live-pill${connected ? " on" : ""}`}>
+                {connected ? "live" : "connecting"}
+              </span>
+            </div>
+            <h1 className="display" style={{ fontSize: 34 }}>{room.title}</h1>
+            <p className="dim" style={{ marginTop: 8 }}>
+              Hosted by{" "}
+              <Link to={`/users/${room.host.id}`} style={{ color: "var(--amber)", fontWeight: 600 }}>
+                {room.host.display_name}
+              </Link>{" "}
+              · started {timeAgo(room.started_at)}
+            </p>
           </div>
-          <h1>{room.title}</h1>
-          <p className="dim">
-            Hosted by{" "}
-            <Link to={`/users/${room.host.id}`} style={{ color: "#b7a3fa" }}>
-              {room.host.display_name}
-            </Link>{" "}
-            · started {timeAgo(room.started_at)}
-          </p>
-        </div>
-        <div className="row">
-          {micButton}
-          <button className="ghost" onClick={shareRoom}>Share</button>
-          {isLive && !seated && <button onClick={join} disabled={busy}>Join room</button>}
-          {isLive && seated && !isHost && (
-            <button className="ghost" onClick={leave} disabled={busy}>Leave</button>
-          )}
-          {isLive && isHost && (
-            <button className="danger" onClick={end} disabled={busy}>End room</button>
-          )}
-          {!isLive && (
-            <button className="ghost" onClick={() => navigate("/")}>Back to rooms</button>
-          )}
+          <div className="row">
+            {canSpeak && isLive && (
+              <button
+                className={`mic${micOn ? "" : " off"}`}
+                title={micOn ? "Mute" : "Unmute"}
+                onClick={() =>
+                  toggleMic().catch(() =>
+                    toast("Microphone access was blocked by the browser.", true)
+                  )
+                }
+              >
+                {micOn ? <MicIcon size={18} /> : <MicOffIcon size={18} />}
+              </button>
+            )}
+            <button className="ghost icon-btn" onClick={shareRoom} title="Copy room link">
+              <ShareIcon size={15} />
+            </button>
+            {isLive && !seated && <button onClick={join} disabled={busy}>Join room</button>}
+            {isLive && seated && !isHost && (
+              <button className="ghost" onClick={leave} disabled={busy}>Leave</button>
+            )}
+            {isLive && isHost && (
+              <button className="danger" onClick={end} disabled={busy}>End room</button>
+            )}
+            {!isLive && (
+              <button className="ghost" onClick={() => navigate("/")}>All rooms</button>
+            )}
+          </div>
         </div>
       </div>
 
@@ -222,7 +232,10 @@ export default function Room() {
           <div className="card stack">
             <div className="row between">
               <h2>On stage</h2>
-              <span className="dim">{participants.length}/{room.max_seats} seats</span>
+              <span className="faint row" style={{ gap: 6 }}>
+                <UsersIcon size={13} />
+                {participants.length}/{room.max_seats}
+              </span>
             </div>
             <div className="stage">
               {participants.map((p) => (
@@ -231,7 +244,6 @@ export default function Room() {
                   p={p}
                   isSpeaking={Boolean(speaking[p.user.id])}
                   micOn={Boolean(micStates[p.user.id])}
-                  isHost={p.role === "host"}
                   canManage={isHost && isLive}
                   onRole={setRole}
                 />
@@ -239,20 +251,23 @@ export default function Room() {
             </div>
             {canSpeak && isLive && (
               <p className="faint">
-                🎙️ You can speak in this room — audio streams peer-to-peer via WebRTC.
-                {micOn ? " You're live." : " Your mic is off."}
+                Audio streams peer-to-peer over WebRTC.{" "}
+                {micOn ? "You're live." : "Your mic is off."}
               </p>
             )}
             {seated && !canSpeak && isLive && (
               <p className="faint">
-                You're listening. Ask the host to promote you to speaker to talk.
+                You're in the audience — the host can invite you up to speak.
               </p>
             )}
           </div>
 
           {isLive && seated && (
             <div className="card stack">
-              <h2>Send a gift 🎁</h2>
+              <div className="row" style={{ gap: 8 }}>
+                <GiftIcon size={15} />
+                <h2>Send a gift</h2>
+              </div>
               <div className="row wrap">
                 {giftTypes.map((g) => (
                   <button
@@ -262,8 +277,8 @@ export default function Room() {
                     onClick={() => setSelectedGift(g)}
                   >
                     <span className="emoji">{GIFT_EMOJI[g.name] || "🎁"}</span>
-                    <span style={{ fontSize: 13, fontWeight: 700 }}>{g.name}</span>
-                    <span className="price">🪙 {g.coins}</span>
+                    <span className="g-name">{g.name}</span>
+                    <span className="price">{g.coins}</span>
                   </button>
                 ))}
               </div>
@@ -271,13 +286,13 @@ export default function Room() {
                 <select
                   value={recipient ?? ""}
                   onChange={(e) => setRecipient(Number(e.target.value))}
-                  style={{ maxWidth: 250 }}
+                  style={{ maxWidth: 240 }}
                 >
                   {participants
                     .filter((p) => p.user.id !== user.id)
                     .map((p) => (
                       <option key={p.user.id} value={p.user.id}>
-                        to {p.user.display_name} {p.role === "host" ? "👑" : ""}
+                        to {p.user.display_name}{p.role === "host" ? " — host" : ""}
                       </option>
                     ))}
                 </select>
@@ -289,11 +304,11 @@ export default function Room() {
           )}
 
           <div className="card stack">
-            <div className="row between">
+            <div className="row between wrap">
               <h2>Gift history</h2>
               {topSupporters.length > 0 && (
-                <span className="dim">
-                  Top supporters:{" "}
+                <span className="faint">
+                  Top:{" "}
                   {topSupporters.map(([name, coins], i) => (
                     <span key={name}>
                       {i > 0 && " · "}
@@ -304,16 +319,16 @@ export default function Room() {
               )}
             </div>
             {gifts.length === 0 ? (
-              <p className="dim">No gifts yet. Be the first!</p>
+              <p className="dim">No gifts yet — be the first.</p>
             ) : (
               <table className="ledger">
                 <tbody>
                   {gifts.map((g) => (
                     <tr key={g.id}>
                       <td>{GIFT_EMOJI[g.gift_type.name] || "🎁"} {g.gift_type.name}</td>
-                      <td>{g.sender.display_name} → {g.recipient.display_name}</td>
-                      <td className="delta-pos">🪙 {g.coins}</td>
-                      <td className="faint">{timeAgo(g.created_at)}</td>
+                      <td className="dim">{g.sender.display_name} → {g.recipient.display_name}</td>
+                      <td className="delta-pos">{g.coins}</td>
+                      <td className="faint" style={{ textAlign: "right" }}>{timeAgo(g.created_at)}</td>
                     </tr>
                   ))}
                 </tbody>
@@ -323,13 +338,13 @@ export default function Room() {
         </div>
 
         <div className="card chat">
-          <div className="row between" style={{ marginBottom: 12 }}>
+          <div className="row between" style={{ marginBottom: 14 }}>
             <h2>Live chat</h2>
-            <span className="faint">{messages.length} messages</span>
+            <span className="faint">{messages.length}</span>
           </div>
           <div className="msgs">
             {messages.length === 0 && (
-              <p className="dim">Say hi — messages appear instantly for everyone here.</p>
+              <p className="dim">Say hi — everyone in the room sees it instantly.</p>
             )}
             {messages.map((m, i) => (
               <div className="msg" key={m.id ?? i}>
@@ -351,7 +366,9 @@ export default function Room() {
                   placeholder="Message the room…"
                   maxLength={500}
                 />
-                <button disabled={!connected}>Send</button>
+                <button disabled={!connected} title="Send">
+                  <SendIcon size={15} />
+                </button>
               </form>
               <div className="quick">
                 {QUICK_REACTIONS.map((emoji) => (

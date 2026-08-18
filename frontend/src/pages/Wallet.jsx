@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { api, idempotencyKey } from "../api.js";
 import { timeAgo, useToast } from "../components/helpers.jsx";
+import { CoinIcon } from "../components/Icons.jsx";
 
 const REASON_LABEL = {
   topup: "Top-up",
@@ -40,33 +41,30 @@ export default function Wallet() {
     }
   };
 
-  if (!wallet) return <p className="dim">Loading wallet…</p>;
+  if (!wallet) return <div className="skeleton" />;
 
   return (
-    <div className="stack">
+    <div className="page stack" style={{ gap: 14 }}>
       <div>
-        <h1>Wallet</h1>
-        <p className="dim">
-          Balance is a cached sum of the ledger — every movement below is an
-          immutable double-entry row.
+        <div className="kicker" style={{ marginBottom: 8 }}>Your wallet</div>
+        <h1 className="display">Every coin, <em>accounted.</em></h1>
+        <p className="dim" style={{ marginTop: 10, maxWidth: 460 }}>
+          The balance is a cached sum of an append-only double-entry ledger —
+          every movement below is immutable.
         </p>
       </div>
 
-      <div className="card row between">
+      <div className="card row between wrap" style={{ padding: 28 }}>
         <div>
-          <div className="dim">Current balance</div>
-          <div style={{ fontSize: 34, fontWeight: 800, color: "var(--gold)" }}>
-            🪙 {wallet.balance_coins}
+          <div className="kicker" style={{ marginBottom: 10 }}>Balance</div>
+          <div className="row" style={{ gap: 10, color: "var(--amber)" }}>
+            <CoinIcon size={30} />
+            <span className="num">{wallet.balance_coins}</span>
           </div>
         </div>
         <form onSubmit={topup} className="row wrap">
           {[100, 500, 1000].map((v) => (
-            <button
-              key={v}
-              type="button"
-              className={`ghost${Number(amount) === v ? " selected" : ""}`}
-              onClick={() => setAmount(v)}
-            >
+            <button key={v} type="button" className="ghost" onClick={() => setAmount(v)}>
               +{v}
             </button>
           ))}
@@ -83,7 +81,7 @@ export default function Wallet() {
       </div>
 
       <div className="card stack">
-        <h2>Recent ledger entries</h2>
+        <h2>Ledger</h2>
         {wallet.recent_entries.length === 0 ? (
           <p className="dim">No transactions yet.</p>
         ) : (
@@ -91,11 +89,11 @@ export default function Wallet() {
             <tbody>
               {wallet.recent_entries.map((e) => (
                 <tr key={e.id}>
-                  <td>{REASON_LABEL[e.reason] || e.reason}</td>
+                  <td style={{ fontWeight: 600 }}>{REASON_LABEL[e.reason] || e.reason}</td>
                   <td className={e.delta_coins >= 0 ? "delta-pos" : "delta-neg"}>
                     {e.delta_coins >= 0 ? "+" : ""}{e.delta_coins}
                   </td>
-                  <td className="dim">{timeAgo(e.created_at)}</td>
+                  <td className="faint" style={{ textAlign: "right" }}>{timeAgo(e.created_at)}</td>
                 </tr>
               ))}
             </tbody>
