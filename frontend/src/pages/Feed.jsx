@@ -29,17 +29,18 @@ function RoomCard({ room }) {
 export default function Feed() {
   const [rooms, setRooms] = useState(null);
   const [topic, setTopic] = useState("");
+  const [status, setStatus] = useState("live");
   const [title, setTitle] = useState("");
   const [newTopic, setNewTopic] = useState("");
   const [creating, setCreating] = useState(false);
   const [toastNode, toast] = useToast();
 
   const load = useCallback(async () => {
-    const params = new URLSearchParams({ status: "live" });
+    const params = new URLSearchParams({ status });
     if (topic) params.set("topic", topic);
     const data = await api(`/api/v1/rooms/?${params}`);
     setRooms(data.results);
-  }, [topic]);
+  }, [topic, status]);
 
   useEffect(() => {
     load().catch(() => {});
@@ -68,17 +69,29 @@ export default function Feed() {
 
   return (
     <div className="stack">
-      <div className="row between">
+      <div className="row between wrap">
         <div>
-          <h1>Live now</h1>
-          <p className="dim">Rooms refresh every 10 seconds.</p>
+          <h1>{status === "live" ? "Live now" : "Past rooms"}</h1>
+          <p className="dim">
+            {status === "live"
+              ? `${rooms?.length ?? "…"} rooms live · refreshes every 10 seconds`
+              : "Rooms that have ended."}
+          </p>
         </div>
-        <select value={topic} onChange={(e) => setTopic(e.target.value)} style={{ width: 160 }}>
-          <option value="">All topics</option>
-          {["music", "tech", "gaming", "comedy", "bollywood", "cricket"].map((t) => (
-            <option key={t} value={t}>{t}</option>
-          ))}
-        </select>
+        <div className="row">
+          <button
+            className="ghost"
+            onClick={() => setStatus(status === "live" ? "ended" : "live")}
+          >
+            {status === "live" ? "History" : "← Live rooms"}
+          </button>
+          <select value={topic} onChange={(e) => setTopic(e.target.value)} style={{ width: 150 }}>
+            <option value="">All topics</option>
+            {["music", "tech", "gaming", "comedy", "bollywood", "cricket"].map((t) => (
+              <option key={t} value={t}>{t}</option>
+            ))}
+          </select>
+        </div>
       </div>
 
       <form onSubmit={createRoom} className="card row" style={{ gap: 10 }}>
@@ -99,9 +112,13 @@ export default function Feed() {
       </form>
 
       {rooms === null ? (
-        <p className="dim">Loading rooms…</p>
+        <div className="grid">
+          {[...Array(6)].map((_, i) => <div className="skeleton" key={i} />)}
+        </div>
       ) : rooms.length === 0 ? (
-        <p className="dim">No live rooms right now — start one!</p>
+        <div className="card dim" style={{ textAlign: "center", padding: 40 }}>
+          {status === "live" ? "🎙️ No live rooms right now — start one above!" : "No ended rooms yet."}
+        </div>
       ) : (
         <div className="grid">
           {rooms.map((r) => (

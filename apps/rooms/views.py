@@ -11,10 +11,17 @@ from rest_framework.response import Response
 from config.exceptions import APIError
 from config.pagination import DefaultCursorPagination
 
+from asgiref.sync import async_to_sync
+from channels.layers import get_channel_layer
+
 from .cache import room_list_cache_key
 from .models import Room, RoomParticipant
 from .permissions import IsHostOrReadOnly
-from .serializers import RoomParticipantSerializer, RoomSerializer
+from .serializers import (
+    RoomMessageSerializer,
+    RoomParticipantSerializer,
+    RoomSerializer,
+)
 from .signals import room_ended, room_went_live
 from .tasks import notify_followers_of_live_room
 
@@ -33,6 +40,17 @@ class RoomNotLiveError(APIError):
 class AlreadyEndedError(APIError):
     code = "room_already_ended"
     message = "This room is already ended."
+
+
+class NotHostError(APIError):
+    status_code = 403
+    code = "not_host"
+    message = "Only the host can manage speakers."
+
+
+class InvalidRoleError(APIError):
+    code = "invalid_role"
+    message = "Role must be 'speaker' or 'listener'."
 
 
 class RoomCursorPagination(DefaultCursorPagination):
@@ -158,6 +176,53 @@ class RoomViewSet(
             .order_by("joined_at")
         )
         return Response(RoomParticipantSerializer(qs, many=True).data)
+
+    @action(detail=True, methods=["get"])
+    def messages(self, request, pk=None):
+        """Last 50 chat messages, oldest first (for direct rendering)."""
+        room = self.get_object()
+        qs = list(
+            room.messages.select_related("user").order_by("-created_at")[:50]
+        )[::-1]
+        return Response(RoomMessageSerializer(qs, many=True).data)
+
+    @action(
+        detail=True,
+        methods=["post"],
+        url_path=r"participants/(?P<user_id>\d+)/role",
+    )
+    def set_role(self, request, pk=None, user_id=None):
+        """Host promotes a listener to speaker or demotes back."""
+        room = self.get_object()
+        if room.host_id != request.user.id:
+            raise NotHostError()
+        role = request.data.get("role")
+        if role not in (RoomParticipant.Role.SPEAKER, RoomParticipant.Role.LISTENER):
+            raise InvalidRoleError()
+        participant = get_object_or_404(
+            RoomParticipant.objects.select_related("user"),
+            room=room,
+            user_id=user_id,
+            left_at__isnull=True,
+        )
+        if participant.role == RoomParticipant.Role.HOST:
+            raise InvalidRoleError("The host's role cannot be changed.")
+        participant.role = role
+        participant.save(update_fields=("role",))
+        # push the change to everyone connected to the room
+        async_to_sync(get_channel_layer().group_send)(
+            f"room_{room.id}",
+            {
+                "type": "room.event",
+                "event": "role",
+                "user": {
+                    "id": participant.user.id,
+                    "display_name": participant.user.display_name,
+                },
+                "value": role,
+            },
+        )
+        return Response(RoomParticipantSerializer(participant).data)
 
     def _reload(self, pk):
         return self.get_queryset().get(pk=pk)

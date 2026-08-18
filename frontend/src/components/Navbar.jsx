@@ -6,13 +6,23 @@ import { useAuth } from "../auth.jsx";
 export default function Navbar() {
   const { user, logout } = useAuth();
   const [balance, setBalance] = useState(null);
+  const [hasNews, setHasNews] = useState(false);
 
   useEffect(() => {
     let alive = true;
-    const load = () =>
-      api("/api/v1/wallet/").then((w) => alive && setBalance(w.balance_coins)).catch(() => {});
+    const load = async () => {
+      try {
+        const w = await api("/api/v1/wallet/");
+        if (alive) setBalance(w.balance_coins);
+        const n = await api("/api/v1/notifications/");
+        const newest = n.results[0]?.created_at;
+        const lastSeen = localStorage.getItem("notif_seen") || "";
+        if (alive) setHasNews(Boolean(newest && newest > lastSeen));
+      } catch {
+        /* transient */
+      }
+    };
     load();
-    // keep the coin count fresh as gifts get sent from any page
     const t = setInterval(load, 5000);
     return () => {
       alive = false;
@@ -28,7 +38,10 @@ export default function Navbar() {
       <div className="links">
         <NavLink to="/" end>Rooms</NavLink>
         <NavLink to="/wallet">Wallet</NavLink>
-        <NavLink to="/notifications">Notifications</NavLink>
+        <NavLink to="/notifications">
+          Notifications
+          {hasNews && <span className="dot" />}
+        </NavLink>
         <NavLink to="/me">Profile</NavLink>
       </div>
       <Link to="/wallet" className="coins">🪙 {balance ?? "…"}</Link>

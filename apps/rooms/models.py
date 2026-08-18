@@ -39,6 +39,20 @@ class Room(models.Model):
         self.participants.filter(left_at__isnull=True).update(left_at=self.ended_at)
 
 
+class RoomMessage(models.Model):
+    """Live chat, persisted so late joiners get history."""
+
+    room = models.ForeignKey(Room, on_delete=models.CASCADE, related_name="messages")
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="+"
+    )
+    text = models.CharField(max_length=500)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        indexes = [models.Index(fields=("room", "-created_at"))]
+
+
 class RoomParticipant(models.Model):
     class Role(models.TextChoices):
         HOST = "host"

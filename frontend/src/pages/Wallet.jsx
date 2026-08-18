@@ -59,14 +59,24 @@ export default function Wallet() {
             🪙 {wallet.balance_coins}
           </div>
         </div>
-        <form onSubmit={topup} className="row">
+        <form onSubmit={topup} className="row wrap">
+          {[100, 500, 1000].map((v) => (
+            <button
+              key={v}
+              type="button"
+              className={`ghost${Number(amount) === v ? " selected" : ""}`}
+              onClick={() => setAmount(v)}
+            >
+              +{v}
+            </button>
+          ))}
           <input
             type="number"
             min="1"
             max="1000000"
             value={amount}
             onChange={(e) => setAmount(e.target.value)}
-            style={{ width: 120 }}
+            style={{ width: 110 }}
           />
           <button disabled={busy}>{busy ? "Adding…" : "Top up"}</button>
         </form>

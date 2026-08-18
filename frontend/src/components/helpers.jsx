@@ -1,8 +1,9 @@
 import { useCallback, useState } from "react";
 
-export function Avatar({ name, sm }) {
+export function Avatar({ name, sm, lg }) {
   const initial = (name || "?").trim().charAt(0).toUpperCase();
-  return <div className={`avatar${sm ? " sm" : ""}`}>{initial}</div>;
+  const size = sm ? " sm" : lg ? " lg" : "";
+  return <div className={`avatar${size}`}>{initial}</div>;
 }
 
 export function useToast() {

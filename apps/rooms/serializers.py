@@ -2,7 +2,15 @@ from rest_framework import serializers
 
 from apps.users.serializers import UserPublicSerializer
 
-from .models import Room, RoomParticipant
+from .models import Room, RoomMessage, RoomParticipant
+
+
+class RoomMessageSerializer(serializers.ModelSerializer):
+    user = UserPublicSerializer(read_only=True)
+
+    class Meta:
+        model = RoomMessage
+        fields = ("id", "user", "text", "created_at")
 
 
 class RoomSerializer(serializers.ModelSerializer):

@@ -12,7 +12,13 @@ export default function Notifications() {
   const [rows, setRows] = useState(null);
 
   useEffect(() => {
-    api("/api/v1/notifications/").then((d) => setRows(d.results)).catch(() => {});
+    api("/api/v1/notifications/")
+      .then((d) => {
+        setRows(d.results);
+        // clears the navbar dot
+        if (d.results[0]) localStorage.setItem("notif_seen", d.results[0].created_at);
+      })
+      .catch(() => {});
   }, []);
 
   if (rows === null) return <p className="dim">Loading notifications…</p>;

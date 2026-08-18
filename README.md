@@ -1,8 +1,9 @@
 # Roomies — Live Audio-Room Social Platform
 
-A full-stack app for live audio rooms — hosting, follows, virtual gifting with a
-double-entry wallet ledger, and moderation. Django REST backend + React frontend.
-**Postgres + Redis + Celery, 61 tests, Dockerised.**
+A full-stack app for live audio rooms — real-time voice (WebRTC), live chat and
+presence (websockets), follows, virtual gifting with a double-entry wallet ledger,
+and moderation. Django REST + Channels backend, React frontend.
+**Postgres + Redis + Celery, 68 tests, Dockerised.**
 
 Built the way live social products (think FRND / Clubhouse) actually work: people join
 audio rooms, follow hosts, send virtual gifts, and get moderated. The gifting economy is
@@ -15,7 +16,9 @@ destroyed, or double-spent under concurrent load.
 | Layer     | Choice                          |
 |-----------|---------------------------------|
 | Backend   | Django 5 + Django REST Framework |
-| Frontend  | React 19 + Vite SPA, served by nginx (same-origin /api proxy — no CORS) |
+| Realtime  | Django Channels (daphne ASGI) — chat, presence, WebRTC signaling over websockets |
+| Audio     | WebRTC peer-to-peer mesh; the server only brokers the handshake |
+| Frontend  | React 19 + Vite SPA, served by nginx (same-origin /api + /ws proxy — no CORS) |
 | Database  | PostgreSQL 16 (SQLite fallback for quick local hacking) |
 | Cache     | Redis (versioned live-feed cache, 30 s TTL) |
 | Async     | Celery + Redis broker (notification fan-out) |
@@ -109,9 +112,12 @@ Interactive docs at `/api/v1/docs/`, OpenAPI schema at `/api/v1/schema/`.
 | GET | `/api/v1/gift-types/` | Gift catalog |
 | POST | `/api/v1/rooms/{id}/gifts/` | Send a gift (Idempotency-Key required, throttled 30/min) |
 | GET | `/api/v1/rooms/{id}/gifts/history/` | Gifts sent in a room |
+| GET | `/api/v1/rooms/{id}/messages/` | Chat history (last 50) |
+| POST | `/api/v1/rooms/{id}/participants/{uid}/role/` | Promote/demote speaker (host only) |
 | POST/GET | `/api/v1/reports/` | File / list reports (staff see all) |
 | PATCH | `/api/v1/reports/{id}/` | Review a report (staff only) |
 | GET | `/api/v1/schema/`, `/api/v1/docs/` | OpenAPI schema / Swagger UI |
+| WS | `/ws/rooms/{id}/?token=<jwt>` | Chat, presence, reactions, speaking state, WebRTC signaling |
 
 Errors carry a stable machine-readable code, e.g.
 `{"code": "insufficient_balance", "detail": "Not enough coins."}` — clients branch on
@@ -132,6 +138,24 @@ seats, presence and gifting are fully real.
 
 Local frontend dev: `cd frontend && npm install && npm run dev` (backend on
 :8000 via Docker or `manage.py runserver`), then http://localhost:5173.
+
+## Real-time architecture
+
+Each room has one websocket per participant (JWT-authenticated via query
+param — browsers can't set headers on websockets). The socket multiplexes:
+
+- **chat** — persisted to Postgres, broadcast via the Redis channel layer
+- **presence** — peer_joined / peer_left, so the UI updates without polling
+- **speaking / mic / reactions** — ephemeral UI state, broadcast, never stored
+- **signal** — WebRTC offers/answers/ICE relayed to exactly one target peer
+
+Voice is a **peer-to-peer WebRTC mesh**: the backend never touches audio, it
+only brokers the handshake, which is how it stays cheap at small room sizes
+(a mesh is O(n²) connections — the documented next step for big rooms is an
+SFU like LiveKit). Speaker permission is enforced socially: the host promotes
+listeners to speakers, and the mic button only renders for speakers/host.
+Speaking indicators run on a local AudioContext analyser and broadcast state
+changes, not audio.
 
 ## Design decisions
 
