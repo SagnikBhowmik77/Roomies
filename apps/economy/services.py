@@ -110,9 +110,12 @@ def topup(*, user, coins, idempotency_key=None):
     """
     Credit coins to a user's wallet (stub for a payment-gateway callback).
     Single-entry here because the counterparty is the payment provider,
-    outside our coin system.
+    outside our coin system. Idempotent like send_gift: a replayed key
+    returns the wallet untouched instead of double-crediting.
     """
     key = idempotency_key or f"topup:{uuid.uuid4()}"
+    if LedgerEntry.objects.filter(idempotency_key=key).exists():
+        return Wallet.objects.get(user=user)
     with transaction.atomic():
         wallet = Wallet.objects.select_for_update().get(user=user)
         LedgerEntry.objects.create(

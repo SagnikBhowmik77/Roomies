@@ -129,6 +129,13 @@ def test_topup_creates_ledger_entry(user):
     assert entry.delta_coins == 100
 
 
+def test_topup_replay_with_same_key_credits_once(user):
+    services.topup(user=user, coins=100, idempotency_key="topup-retry")
+    wallet = services.topup(user=user, coins=100, idempotency_key="topup-retry")
+    assert wallet.balance_coins == 100  # not 200
+    assert LedgerEntry.objects.count() == 1
+
+
 def test_topup_endpoint(auth_client, user):
     response = auth_client.post("/api/v1/wallet/topup/", {"coins": 500})
     assert response.status_code == 201

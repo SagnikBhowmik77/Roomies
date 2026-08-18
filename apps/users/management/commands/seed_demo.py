@@ -55,7 +55,9 @@ class Command(BaseCommand):
                 idempotency_key=f"seed-topup-{user.phone}",
             )
 
-        rooms = []
+        # only gift in rooms created THIS run, so reseeding an already
+        # seeded database is a clean no-op
+        new_rooms = []
         for i, host in enumerate(users[:6]):
             room, created = Room.objects.get_or_create(
                 host=host,
@@ -71,10 +73,10 @@ class Command(BaseCommand):
                     RoomParticipant.objects.create(room=room, user=listener)
                 room.listener_count = 4
                 room.save(update_fields=("listener_count",))
-            rooms.append(room)
+                new_rooms.append(room)
 
         gift_count = 0
-        for room in rooms:
+        for room in new_rooms:
             senders = room.participants.exclude(user=room.host).select_related("user")
             for participant in senders:
                 if random.random() < 0.6:
@@ -93,7 +95,7 @@ class Command(BaseCommand):
         self.stdout.write(
             self.style.SUCCESS(
                 f"Seeded {len(users)} users, {Follow.objects.count()} follows, "
-                f"{len(rooms)} live rooms, {gift_count} gifts. "
+                f"{len(new_rooms)} new live rooms, {gift_count} gifts. "
                 f"Log in with any seeded phone (e.g. +919876500000) and OTP 123456."
             )
         )
