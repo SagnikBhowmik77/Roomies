@@ -6,6 +6,15 @@ from tests.factories import UserFactory
 
 
 @pytest.fixture(autouse=True)
+def _isolated_media(settings, tmp_path):
+    """
+    Uploads in tests must not land in the real MEDIA_ROOT — otherwise every
+    run leaves stray recording files in the working tree.
+    """
+    settings.MEDIA_ROOT = tmp_path / "media"
+
+
+@pytest.fixture(autouse=True)
 def _clear_cache():
     """Throttle counters and the room-feed cache must not leak across tests."""
     cache.clear()
