@@ -1,0 +1,59 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_DB: roomies
+          POSTGRES_USER: roomies
+          POSTGRES_PASSWORD: roomies
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U roomies"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+      redis:
+        image: redis:7
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+
+    env:
+      POSTGRES_HOST: 127.0.0.1
+      POSTGRES_DB: roomies
+      POSTGRES_USER: roomies
+      POSTGRES_PASSWORD: roomies
+      REDIS_URL: redis://127.0.0.1:6379/0
+      # tests must run their own tasks synchronously
+      CELERY_TASK_ALWAYS_EAGER: "1"
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.14"
+          cache: pip
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Run migrations
+        run: python manage.py migrate
+
+      - name: Run tests with coverage
+        run: pytest --cov --cov-report=term-missing
