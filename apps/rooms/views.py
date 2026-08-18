@@ -87,6 +87,9 @@ class RoomViewSet(
         country = self.request.query_params.get("country")
         if country:
             qs = qs.filter(host__country=country.upper())
+        search = self.request.query_params.get("search")
+        if search:
+            qs = qs.filter(title__icontains=search.strip())
         return qs
 
     def list(self, request, *args, **kwargs):

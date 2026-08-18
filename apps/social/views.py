@@ -1,3 +1,4 @@
+from django.db.models import Count
 from django.shortcuts import get_object_or_404
 from drf_spectacular.types import OpenApiTypes
 from drf_spectacular.utils import extend_schema
@@ -6,6 +7,7 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from apps.users.models import User
+from apps.users.serializers import UserPublicSerializer
 from config.exceptions import APIError
 
 from .models import Follow, Notification
@@ -62,6 +64,28 @@ class FollowingListView(generics.ListAPIView):
             return Follow.objects.none()
         return Follow.objects.filter(follower_id=self.kwargs["pk"]).select_related(
             "following"
+        )
+
+
+class SuggestedUsersView(APIView):
+    """Who to follow: the most-followed users you don't already follow."""
+
+    @extend_schema(responses={200: OpenApiTypes.OBJECT})
+    def get(self, request):
+        already = Follow.objects.filter(follower=request.user).values_list(
+            "following_id", flat=True
+        )
+        candidates = (
+            User.objects.filter(is_active=True, is_banned=False)
+            .exclude(id__in=list(already) + [request.user.id])
+            .annotate(follower_count=Count("follower_set"))
+            .order_by("-follower_count", "id")[:5]
+        )
+        return Response(
+            [
+                {**UserPublicSerializer(u).data, "follower_count": u.follower_count}
+                for u in candidates
+            ]
         )
 
 

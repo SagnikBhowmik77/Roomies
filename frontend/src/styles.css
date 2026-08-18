@@ -121,7 +121,7 @@ input:focus, select:focus { border-color: var(--amber); background: rgba(255, 25
 input::placeholder { color: var(--faint); }
 select option { background: var(--surface-2); }
 
-.shell { max-width: 1060px; margin: 0 auto; padding: 0 24px 80px; }
+.shell { max-width: 1180px; margin: 0 auto; padding: 0 24px 80px; }
 
 /* ---------- nav ---------- */
 .nav {
@@ -408,3 +408,134 @@ select option { background: var(--surface-2); }
 @keyframes pageIn { from { opacity: 0; transform: translateY(6px); } }
 
 .divider { height: 1px; background: var(--line); border: none; margin: 4px 0; }
+
+/* ============================================================
+   Login — cinematic generative backdrop (three crossfading scenes)
+   ============================================================ */
+.hero-bg { position: fixed; inset: 0; z-index: -1; overflow: hidden; background: var(--bg); }
+.hero-bg .scene {
+  position: absolute; inset: -6%;
+  opacity: 0;
+  animation: sceneCycle 24s infinite;
+}
+.hero-bg .scene:nth-child(2) { animation-delay: 8s; }
+.hero-bg .scene:nth-child(3) { animation-delay: 16s; }
+@keyframes sceneCycle {
+  0% { opacity: 0; transform: scale(1); }
+  6%, 33% { opacity: 1; }
+  41%, 100% { opacity: 0; }
+  45% { transform: scale(1.07); }
+}
+
+/* scene 1 — amber studio glow */
+.scene.studio {
+  background:
+    radial-gradient(700px 460px at 74% 30%, rgba(232, 163, 61, 0.24), transparent 65%),
+    radial-gradient(520px 400px at 20% 75%, rgba(255, 120, 60, 0.12), transparent 60%),
+    var(--bg);
+}
+/* scene 2 — on-air red wash */
+.scene.onair {
+  background:
+    radial-gradient(640px 420px at 28% 32%, rgba(255, 81, 69, 0.18), transparent 60%),
+    radial-gradient(500px 500px at 80% 80%, rgba(232, 163, 61, 0.1), transparent 60%),
+    var(--bg);
+}
+/* scene 3 — cool crowd dusk */
+.scene.crowd {
+  background:
+    radial-gradient(680px 440px at 62% 70%, rgba(120, 140, 255, 0.13), transparent 60%),
+    radial-gradient(520px 380px at 15% 20%, rgba(232, 163, 61, 0.12), transparent 60%),
+    var(--bg);
+}
+
+/* drifting waveform ridges shared by all scenes */
+.hero-bg svg.wave {
+  position: absolute; left: -10%; width: 120%; height: 34%;
+  bottom: -4%;
+  color: rgba(232, 163, 61, 0.16);
+  animation: waveDrift 26s linear infinite alternate;
+}
+.hero-bg svg.wave.w2 {
+  bottom: 6%; height: 26%;
+  color: rgba(255, 81, 69, 0.1);
+  animation-duration: 34s; animation-direction: alternate-reverse;
+}
+@keyframes waveDrift { to { transform: translateX(-5%) translateY(6px); } }
+
+/* floating listener dots */
+.hero-bg .dotfield i {
+  position: absolute; border-radius: 50%;
+  background: rgba(242, 237, 228, 0.12);
+  animation: rise linear infinite;
+}
+@keyframes rise {
+  from { transform: translateY(20vh) scale(1); opacity: 0; }
+  12% { opacity: 1; }
+  88% { opacity: 1; }
+  to { transform: translateY(-110vh) scale(0.6); opacity: 0; }
+}
+
+.login-grid {
+  min-height: 100vh;
+  display: grid; grid-template-columns: minmax(360px, 460px) 1fr;
+  align-items: center; gap: 40px;
+  max-width: 1180px; margin: 0 auto; padding: 0 24px;
+}
+@media (max-width: 860px) { .login-grid { grid-template-columns: 1fr; } .login-showcase { display: none; } }
+.login-showcase { position: relative; height: 66vh; pointer-events: none; }
+.login-showcase .quote {
+  position: absolute;
+  font-family: var(--serif); font-size: 26px; line-height: 1.25;
+  color: var(--text);
+  max-width: 300px;
+  padding: 20px 24px;
+  background: rgba(21, 19, 16, 0.55);
+  backdrop-filter: blur(10px);
+  border: 1px solid var(--line);
+  border-radius: var(--r-lg);
+  opacity: 0;
+  animation: quoteCycle 24s infinite;
+}
+.login-showcase .quote em { color: var(--amber); }
+.login-showcase .quote small {
+  display: block; margin-top: 10px;
+  font-family: var(--sans); font-size: 11px; font-weight: 700;
+  letter-spacing: 0.12em; text-transform: uppercase; color: var(--faint);
+}
+.login-showcase .quote:nth-child(1) { top: 6%; right: 12%; }
+.login-showcase .quote:nth-child(2) { top: 38%; right: 34%; animation-delay: 8s; }
+.login-showcase .quote:nth-child(3) { top: 66%; right: 6%; animation-delay: 16s; }
+@keyframes quoteCycle {
+  0% { opacity: 0; transform: translateY(14px); }
+  5%, 31% { opacity: 1; transform: translateY(0); }
+  38%, 100% { opacity: 0; transform: translateY(-10px); }
+}
+
+/* ============================================================
+   Feed rails + chips
+   ============================================================ */
+.feed-grid { display: grid; grid-template-columns: 1fr 300px; gap: 16px; align-items: start; }
+@media (max-width: 980px) { .feed-grid { grid-template-columns: 1fr; } }
+.rail { display: flex; flex-direction: column; gap: 14px; position: sticky; top: 84px; }
+.rail .card { padding: 18px; }
+.rail-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.rail-row .info { display: flex; align-items: center; gap: 10px; min-width: 0; }
+.rail-row .info .nm { font-size: 13px; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.rail-row .info .sub { font-size: 11.5px; color: var(--faint); }
+.rail-row button { padding: 6px 13px; font-size: 12px; }
+.rail-rank { font-family: var(--serif); font-size: 17px; color: var(--faint); width: 18px; text-align: center; }
+
+.chips { display: flex; gap: 7px; flex-wrap: wrap; }
+.chips button {
+  background: transparent; border: 1px solid var(--line);
+  color: var(--dim); padding: 7px 14px; font-size: 12.5px;
+}
+.chips button:hover { background: var(--surface-2); color: var(--text); }
+.chips button.on { background: var(--text); color: #171410; border-color: var(--text); }
+.chips .cnt { color: var(--faint); font-size: 11px; margin-left: 4px; }
+.chips button.on .cnt { color: rgba(23, 20, 16, 0.55); }
+
+.searchbox { position: relative; flex: 1; max-width: 260px; }
+.searchbox input { padding-left: 36px; }
+.searchbox svg { position: absolute; left: 12px; top: 50%; transform: translateY(-50%); color: var(--faint); }

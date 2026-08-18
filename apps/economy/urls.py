@@ -2,6 +2,7 @@ from django.urls import path
 
 from .views import (
     GiftTypeListView,
+    LeaderboardView,
     RoomGiftListView,
     SendGiftView,
     TopupView,
@@ -9,6 +10,7 @@ from .views import (
 )
 
 urlpatterns = [
+    path("leaderboard/", LeaderboardView.as_view(), name="leaderboard"),
     path("wallet/", WalletView.as_view(), name="wallet"),
     path("wallet/topup/", TopupView.as_view(), name="wallet-topup"),
     path("gift-types/", GiftTypeListView.as_view(), name="gift-types"),

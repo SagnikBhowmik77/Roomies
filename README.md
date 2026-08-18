@@ -3,7 +3,7 @@
 A full-stack app for live audio rooms — real-time voice (WebRTC), live chat and
 presence (websockets), follows, virtual gifting with a double-entry wallet ledger,
 and moderation. Django REST + Channels backend, React frontend.
-**Postgres + Redis + Celery, 68 tests, Dockerised.**
+**Postgres + Redis + Celery, 72 tests, Dockerised.**
 
 Built the way live social products (think FRND / Clubhouse) actually work: people join
 audio rooms, follow hosts, send virtual gifts, and get moderated. The gifting economy is
@@ -100,8 +100,10 @@ Interactive docs at `/api/v1/docs/`, OpenAPI schema at `/api/v1/schema/`.
 | GET | `/api/v1/users/{id}/followers/` | Followers (cursor-paginated) |
 | GET | `/api/v1/users/{id}/following/` | Following (cursor-paginated) |
 | GET | `/api/v1/notifications/` | Own notifications ("host went live") |
+| GET | `/api/v1/users/suggested/` | Who to follow (most-followed, minus already-followed) |
+| GET | `/api/v1/leaderboard/` | Top hosts by coins received |
 | POST | `/api/v1/rooms/` | Go live (host auto-seated, followers notified async) |
-| GET | `/api/v1/rooms/?status=live&topic=music&country=IN` | Live feed (cached 30 s) |
+| GET | `/api/v1/rooms/?status=live&topic=music&country=IN&search=lofi` | Live feed (cached 30 s, searchable) |
 | GET | `/api/v1/rooms/{id}/` | Room detail |
 | POST | `/api/v1/rooms/{id}/join/` | Take a seat (409 when full) |
 | POST | `/api/v1/rooms/{id}/leave/` | Leave (seat history kept) |

@@ -1,3 +1,4 @@
+from django.db.models import Count, Sum
 from django.shortcuts import get_object_or_404
 from drf_spectacular.types import OpenApiTypes
 from drf_spectacular.utils import OpenApiParameter, extend_schema
@@ -8,6 +9,7 @@ from rest_framework.views import APIView
 
 from apps.rooms.models import Room
 from apps.users.models import User
+from apps.users.serializers import UserPublicSerializer
 from config.exceptions import APIError
 
 from . import services
@@ -126,6 +128,31 @@ class SendGiftView(APIView):
         return Response(
             GiftSerializer(gift).data,
             status=status.HTTP_201_CREATED if created else status.HTTP_200_OK,
+        )
+
+
+class LeaderboardView(APIView):
+    """Top hosts by total coins received in gifts — the creator economy board."""
+
+    @extend_schema(responses={200: OpenApiTypes.OBJECT})
+    def get(self, request):
+        top = (
+            User.objects.filter(is_active=True, gifts_received__isnull=False)
+            .annotate(
+                coins_received=Sum("gifts_received__coins"),
+                gift_count=Count("gifts_received"),
+            )
+            .order_by("-coins_received", "id")[:5]
+        )
+        return Response(
+            [
+                {
+                    **UserPublicSerializer(u).data,
+                    "coins_received": u.coins_received,
+                    "gift_count": u.gift_count,
+                }
+                for u in top
+            ]
         )
 
 
