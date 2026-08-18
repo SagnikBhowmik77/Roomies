@@ -1,5 +1,7 @@
 # Roomies — Live Audio-Room Social Platform
 
+[![CI](https://github.com/SagnikBhowmik77/Roomies/actions/workflows/ci.yml/badge.svg)](https://github.com/SagnikBhowmik77/Roomies/actions/workflows/ci.yml)
+
 A full-stack app for live audio rooms — real-time voice (WebRTC), live chat and
 presence (websockets), follows, virtual gifting with a double-entry wallet ledger,
 and moderation. Django REST + Channels backend, React frontend.
@@ -267,8 +269,11 @@ broker configured, tasks run eagerly in-process — local dev needs zero service
 pytest --cov
 ```
 
-58 tests: auth flows, permissions, room capacity under lock, ledger invariants
-(zero-sum entries, balance == ledger sum, price frozen at send time), idempotent
-replays, the concurrent-overspend case, cache invalidation, notification fan-out, and
-moderation visibility rules. CI runs the full suite against real Postgres and Redis on
-every push.
+117 tests covering auth flows, permissions, room capacity under lock, the ledger
+invariants (zero-sum entries, balance == ledger sum, price frozen at send time),
+idempotent replays, the concurrent-overspend case, escrow custody and both refund
+paths, proportional split maths, websocket auth and targeted signal relay, cache
+invalidation, notification fan-out, room expiry, and moderation visibility rules.
+
+Two concurrency tests need real row locking, so they skip on SQLite and run on
+Postgres — which is what CI uses, on every push.
