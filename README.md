@@ -1,7 +1,8 @@
-# Roomies — Live Audio-Room Social Backend
+# Roomies — Live Audio-Room Social Platform
 
-A Django REST backend for live audio rooms — hosting, follows, virtual gifting with a
-double-entry wallet ledger, and moderation. **Postgres + Redis + Celery, 58 tests, Dockerised.**
+A full-stack app for live audio rooms — hosting, follows, virtual gifting with a
+double-entry wallet ledger, and moderation. Django REST backend + React frontend.
+**Postgres + Redis + Celery, 61 tests, Dockerised.**
 
 Built the way live social products (think FRND / Clubhouse) actually work: people join
 audio rooms, follow hosts, send virtual gifts, and get moderated. The gifting economy is
@@ -13,12 +14,13 @@ destroyed, or double-spent under concurrent load.
 
 | Layer     | Choice                          |
 |-----------|---------------------------------|
-| Framework | Django 5 + Django REST Framework |
+| Backend   | Django 5 + Django REST Framework |
+| Frontend  | React 19 + Vite SPA, served by nginx (same-origin /api proxy — no CORS) |
 | Database  | PostgreSQL 16 (SQLite fallback for quick local hacking) |
 | Cache     | Redis (versioned live-feed cache, 30 s TTL) |
 | Async     | Celery + Redis broker (notification fan-out) |
 | Auth      | Phone-first OTP → JWT (simplejwt) |
-| Testing   | pytest + pytest-django + factory_boy — 58 tests |
+| Testing   | pytest + pytest-django + factory_boy — 61 tests |
 | Container | Docker + docker-compose          |
 | CI        | GitHub Actions (Postgres + Redis service containers) |
 
@@ -61,6 +63,10 @@ cp .env.example .env
 docker compose up --build
 docker compose exec web python manage.py seed_demo
 ```
+
+Then open **http://localhost:3000** — the full web app (log in with a seeded
+phone like `+919876500000`, OTP `123456`). The API and Swagger docs are on
+http://localhost:8000/api/v1/docs/.
 
 Without Docker (SQLite + in-process Celery, zero services needed):
 
@@ -110,6 +116,22 @@ Interactive docs at `/api/v1/docs/`, OpenAPI schema at `/api/v1/schema/`.
 Errors carry a stable machine-readable code, e.g.
 `{"code": "insufficient_balance", "detail": "Not enough coins."}` — clients branch on
 the code, not on English text.
+
+## Frontend
+
+`frontend/` is a React 19 + Vite single-page app covering the whole product
+surface: OTP login, the live-room feed with topic filters and go-live, room
+pages with join/leave/end, the gift catalog with live wallet balance, the
+double-entry ledger view, profiles with follow/unfollow, and notifications.
+It talks to the API exclusively through relative `/api/...` URLs; the Vite
+dev server (locally) or nginx (in Docker) proxies those to Django, so the
+browser sees one origin and CORS never needs configuring. JWTs are attached
+by a small fetch wrapper that transparently refreshes an expired access
+token once and retries. Live audio itself (WebRTC) is out of scope — rooms,
+seats, presence and gifting are fully real.
+
+Local frontend dev: `cd frontend && npm install && npm run dev` (backend on
+:8000 via Docker or `manage.py runserver`), then http://localhost:5173.
 
 ## Design decisions
 
