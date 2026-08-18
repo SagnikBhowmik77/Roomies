@@ -12,8 +12,11 @@ import {
   UsersIcon,
 } from "../components/Icons.jsx";
 import { useRoomLive } from "../live/useRoomLive.js";
+import GoalPanel from "./GoalPanel.jsx";
+import QuestionQueue from "./QuestionQueue.jsx";
 
 const QUICK_REACTIONS = ["👏", "🔥", "😂", "❤️", "🎉"];
+const SPLIT = "__split__";
 
 function Seat({ p, isSpeaking, micOn, canManage, onRole }) {
   return (
@@ -52,6 +55,8 @@ export default function Room() {
   const [participants, setParticipants] = useState([]);
   const [giftTypes, setGiftTypes] = useState([]);
   const [gifts, setGifts] = useState([]);
+  const [questions, setQuestions] = useState([]);
+  const [pledges, setPledges] = useState([]);
   const [selectedGift, setSelectedGift] = useState(null);
   const [recipient, setRecipient] = useState(null);
   const [chatInput, setChatInput] = useState("");
@@ -60,15 +65,20 @@ export default function Room() {
   const chatEndRef = useRef(null);
 
   const load = useCallback(async () => {
-    const [r, p, g] = await Promise.all([
+    const [r, p, g, q] = await Promise.all([
       api(`/api/v1/rooms/${id}/`),
       api(`/api/v1/rooms/${id}/participants/`),
       api(`/api/v1/rooms/${id}/gifts/history/`),
+      api(`/api/v1/rooms/${id}/questions/`),
     ]);
     setRoom(r);
     setParticipants(p);
     setGifts(g.results);
-    setRecipient((prev) => prev ?? r.host.id);
+    setQuestions(q);
+    setRecipient((prev) => prev ?? SPLIT);
+    if (r.goal_coins) {
+      api(`/api/v1/rooms/${id}/pledges/`).then(setPledges).catch(() => {});
+    }
   }, [id]);
 
   const {
@@ -107,6 +117,7 @@ export default function Room() {
   if (!room) return <div className="skeleton" style={{ height: 420 }} />;
 
   const me = participants.find((p) => p.user.id === user.id);
+  const onStage = participants.filter((p) => p.role !== "listener");
   const isHost = room.host.id === user.id;
   const seated = Boolean(me);
   const isLive = room.status === "live";
@@ -154,7 +165,11 @@ export default function Room() {
     try {
       await api(`/api/v1/rooms/${id}/gifts/`, {
         method: "POST",
-        body: { recipient_id: recipient, gift_type_id: selectedGift.id },
+        body: {
+          // omitting recipient_id makes it a room gift, split across the stage
+          ...(recipient === SPLIT ? {} : { recipient_id: recipient }),
+          gift_type_id: selectedGift.id,
+        },
         headers: { "Idempotency-Key": idempotencyKey() },
       });
       sendReaction(GIFT_EMOJI[selectedGift.name] || "🎁");
@@ -284,10 +299,17 @@ export default function Room() {
               </div>
               <div className="row">
                 <select
-                  value={recipient ?? ""}
-                  onChange={(e) => setRecipient(Number(e.target.value))}
-                  style={{ maxWidth: 240 }}
+                  value={recipient ?? SPLIT}
+                  onChange={(e) =>
+                    setRecipient(
+                      e.target.value === SPLIT ? SPLIT : Number(e.target.value)
+                    )
+                  }
+                  style={{ maxWidth: 260 }}
                 >
+                  <option value={SPLIT}>
+                    Split across the stage ({onStage.length})
+                  </option>
                   {participants
                     .filter((p) => p.user.id !== user.id)
                     .map((p) => (
@@ -300,8 +322,34 @@ export default function Room() {
                   {selectedGift ? `Send ${selectedGift.name}` : "Pick a gift"}
                 </button>
               </div>
+              {recipient === SPLIT && (
+                <p className="faint">
+                  Room gifts are divided between everyone on stage in
+                  proportion to their time speaking — co-hosting pays.
+                </p>
+              )}
             </div>
           )}
+
+          {room.goal_coins ? (
+            <GoalPanel
+              room={room}
+              pledges={pledges}
+              canPledge={isLive && seated && !isHost}
+              onChange={load}
+              toast={toast}
+            />
+          ) : null}
+
+          <QuestionQueue
+            roomId={room.id}
+            questions={questions}
+            isHost={isHost}
+            selfId={user.id}
+            canAsk={isLive && seated && !isHost}
+            onChange={load}
+            toast={toast}
+          />
 
           <div className="card stack">
             <div className="row between wrap">

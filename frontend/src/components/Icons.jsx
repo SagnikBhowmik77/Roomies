@@ -126,6 +126,37 @@ export const CheckIcon = (p) => (
   </I>
 );
 
+export const QuestionIcon = (p) => (
+  <I {...p}>
+    <circle cx="12" cy="12" r="9" />
+    <path d="M9.5 9.3a2.6 2.6 0 0 1 5 .9c0 1.7-2.5 2.1-2.5 3.8" />
+    <path d="M12 17.2v.01" />
+  </I>
+);
+
+export const TargetIcon = (p) => (
+  <I {...p}>
+    <circle cx="12" cy="12" r="8.5" />
+    <circle cx="12" cy="12" r="4.6" />
+    <circle cx="12" cy="12" r="1" />
+  </I>
+);
+
+export const LockIcon = (p) => (
+  <I {...p}>
+    <rect x="4.5" y="10.5" width="15" height="9.5" rx="2.2" />
+    <path d="M8 10.5V7.8a4 4 0 0 1 8 0v2.7" />
+  </I>
+);
+
+export const ChartIcon = (p) => (
+  <I {...p}>
+    <path d="M4 20V4" />
+    <path d="M4 20h16" />
+    <path d="M8 20v-6M13 20V8M18 20v-9" />
+  </I>
+);
+
 /** Animated equalizer bars — the "this room is alive" signature mark. */
 export function Equalizer({ active = true }) {
   return (

@@ -2,7 +2,13 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { api } from "../api.js";
 import { Avatar, timeAgo, useToast } from "../components/helpers.jsx";
-import { CoinIcon, Equalizer, UsersIcon, WaveIcon } from "../components/Icons.jsx";
+import {
+  CoinIcon,
+  Equalizer,
+  TargetIcon,
+  UsersIcon,
+  WaveIcon,
+} from "../components/Icons.jsx";
 
 function RoomCard({ room }) {
   const live = room.status === "live";
@@ -19,6 +25,26 @@ function RoomCard({ room }) {
           {room.topic && <span className="badge topic">{room.topic}</span>}
         </div>
         <div className="title">{room.title}</div>
+        {room.goal_coins ? (
+          <div className="stack" style={{ gap: 6 }}>
+            <div className="row between">
+              <span className="faint row" style={{ gap: 5 }}>
+                <TargetIcon size={12} />
+                {room.goal_title || "Room goal"}
+              </span>
+              <span className="faint">
+                {room.pledged_coins}/{room.goal_coins}
+              </span>
+            </div>
+            <div className={`meter${room.goal_reached ? " done" : ""}`} style={{ height: 6 }}>
+              <i
+                style={{
+                  width: `${Math.min(100, (room.pledged_coins / room.goal_coins) * 100)}%`,
+                }}
+              />
+            </div>
+          </div>
+        ) : null}
         <div className="row between">
           <div className="row" style={{ gap: 9 }}>
             <Avatar name={room.host.display_name} sm />
@@ -116,6 +142,9 @@ export default function Feed() {
   const [query, setQuery] = useState("");
   const [title, setTitle] = useState("");
   const [newTopic, setNewTopic] = useState("");
+  const [goalCoins, setGoalCoins] = useState("");
+  const [goalTitle, setGoalTitle] = useState("");
+  const [showGoal, setShowGoal] = useState(false);
   const [creating, setCreating] = useState(false);
   const [toastNode, toast] = useToast();
 
@@ -153,10 +182,19 @@ export default function Feed() {
     try {
       await api("/api/v1/rooms/", {
         method: "POST",
-        body: { title, topic: newTopic },
+        body: {
+          title,
+          topic: newTopic,
+          ...(showGoal && goalCoins
+            ? { goal_coins: Number(goalCoins), goal_title: goalTitle }
+            : {}),
+        },
       });
       setTitle("");
       setNewTopic("");
+      setGoalCoins("");
+      setGoalTitle("");
+      setShowGoal(false);
       toast("You're on air — followers have been notified.");
       await load();
     } catch (err) {
@@ -201,19 +239,50 @@ export default function Feed() {
 
       <div className="feed-grid">
         <div className="stack">
-          <form onSubmit={createRoom} className="card go-live">
-            <input
-              placeholder="Start a room — what do you want to talk about?"
-              value={title}
-              onChange={(e) => setTitle(e.target.value)}
-              required
-            />
-            <input
-              placeholder="Topic (optional)"
-              value={newTopic}
-              onChange={(e) => setNewTopic(e.target.value)}
-            />
-            <button disabled={creating}>{creating ? "Starting…" : "Go on air"}</button>
+          <form onSubmit={createRoom} className="card stack" style={{ gap: 12 }}>
+            <div className="go-live" style={{ padding: 0 }}>
+              <input
+                placeholder="Start a room — what do you want to talk about?"
+                value={title}
+                onChange={(e) => setTitle(e.target.value)}
+                required
+              />
+              <input
+                placeholder="Topic (optional)"
+                value={newTopic}
+                onChange={(e) => setNewTopic(e.target.value)}
+              />
+              <button disabled={creating}>{creating ? "Starting…" : "Go on air"}</button>
+            </div>
+            <div className="row wrap" style={{ gap: 10 }}>
+              <button
+                type="button"
+                className={showGoal ? "" : "ghost"}
+                style={{ padding: "7px 14px", fontSize: 12.5 }}
+                onClick={() => setShowGoal(!showGoal)}
+              >
+                <TargetIcon size={13} /> {showGoal ? "Goal on" : "Add a goal"}
+              </button>
+              {showGoal && (
+                <>
+                  <input
+                    placeholder="What unlocks at the goal?"
+                    value={goalTitle}
+                    onChange={(e) => setGoalTitle(e.target.value)}
+                    style={{ flex: 2, minWidth: 180 }}
+                  />
+                  <input
+                    type="number"
+                    min="1"
+                    placeholder="coins"
+                    value={goalCoins}
+                    onChange={(e) => setGoalCoins(e.target.value)}
+                    style={{ width: 110 }}
+                  />
+                  <span className="faint">all-or-nothing · refunded if missed</span>
+                </>
+              )}
+            </div>
           </form>
 
           <div className="chips">

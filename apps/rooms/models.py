@@ -19,6 +19,12 @@ class Room(models.Model):
     max_seats = models.PositiveSmallIntegerField(default=8)
     started_at = models.DateTimeField(auto_now_add=True)
     ended_at = models.DateTimeField(null=True, blank=True)
+    # Goal rooms: pledges are escrowed until the target is hit (settle to the
+    # host) or the room ends short (refund everyone).
+    goal_coins = models.PositiveIntegerField(null=True, blank=True)
+    goal_title = models.CharField(max_length=120, blank=True)
+    pledged_coins = models.PositiveIntegerField(default=0)
+    goal_reached_at = models.DateTimeField(null=True, blank=True)
     # Denormalised counter, maintained under the same row lock as joins/leaves.
     # Source of truth remains RoomParticipant; this exists so the feed never
     # has to COUNT() per room.
@@ -68,6 +74,9 @@ class RoomParticipant(models.Model):
     role = models.CharField(max_length=10, choices=Role.choices, default=Role.LISTENER)
     joined_at = models.DateTimeField(auto_now_add=True)
     left_at = models.DateTimeField(null=True, blank=True)
+    # Set when this participant gained the stage (host on creation, speaker on
+    # promotion). Drives proportional revenue splits for room gifts.
+    speaker_since = models.DateTimeField(null=True, blank=True)
 
     class Meta:
         constraints = [
@@ -84,3 +93,10 @@ class RoomParticipant(models.Model):
     @property
     def is_active(self):
         return self.left_at is None
+
+    def stage_seconds(self, now=None):
+        """Seconds spent on stage — the weight used for revenue splits."""
+        if not self.speaker_since:
+            return 0
+        end = self.left_at or now or timezone.now()
+        return max(0, (end - self.speaker_since).total_seconds())

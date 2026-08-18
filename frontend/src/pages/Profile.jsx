@@ -3,6 +3,62 @@ import { Link, useParams } from "react-router-dom";
 import { api } from "../api.js";
 import { useAuth } from "../auth.jsx";
 import { Avatar, useToast } from "../components/helpers.jsx";
+import { ChartIcon, CoinIcon, ShareIcon } from "../components/Icons.jsx";
+
+function HostStats({ stats, onShare }) {
+  if (!stats) return null;
+  const tiles = [
+    { k: "rooms hosted", v: stats.rooms_hosted },
+    { k: "listener minutes", v: stats.listener_minutes.toLocaleString() },
+    { k: "coins earned", v: stats.coins_earned.toLocaleString(), gold: true },
+    { k: "questions answered", v: stats.questions_answered },
+    { k: "followers", v: stats.followers },
+  ];
+  return (
+    <div className="card stack">
+      <div className="row between">
+        <div className="row" style={{ gap: 8 }}>
+          <ChartIcon size={15} />
+          <h2>Verified track record</h2>
+        </div>
+        {stats.live_now && <span className="badge live">On air</span>}
+      </div>
+      <div className="stat-grid">
+        {tiles.map((t) => (
+          <div className="stat-tile" key={t.k}>
+            <div className={`v${t.gold ? " gold" : ""}`}>{t.v}</div>
+            <div className="k">{t.k}</div>
+          </div>
+        ))}
+      </div>
+      {stats.top_supporters.length > 0 && (
+        <div className="row wrap" style={{ gap: 14 }}>
+          <span className="kicker">Top supporters</span>
+          {stats.top_supporters.map((s, i) => (
+            <span className="row" key={s.id} style={{ gap: 7 }}>
+              <span className="faint">{["🥇", "🥈", "🥉"][i]}</span>
+              <Avatar name={s.display_name} sm />
+              <span style={{ fontSize: 13, fontWeight: 600 }}>{s.display_name}</span>
+              <span className="row" style={{ gap: 4, color: "var(--amber)", fontSize: 12.5, fontWeight: 700 }}>
+                <CoinIcon size={12} />
+                {s.coins}
+              </span>
+            </span>
+          ))}
+        </div>
+      )}
+      <p className="faint">
+        Every number here is derived from the ledger and room records — nothing
+        is a counter that can be inflated.
+      </p>
+      <div className="share-bar">
+        <ShareIcon size={14} />
+        <code>{window.location.origin}/users/{stats.user.id}</code>
+        <button className="ghost" onClick={onShare}>Copy</button>
+      </div>
+    </div>
+  );
+}
 
 function UserList({ title, rows }) {
   return (
@@ -36,16 +92,19 @@ export default function Profile({ me = false }) {
   const [isFollowing, setIsFollowing] = useState(false);
   const [name, setName] = useState("");
   const [country, setCountry] = useState("");
+  const [stats, setStats] = useState(null);
   const [busy, setBusy] = useState(false);
   const [toastNode, toast] = useToast();
 
   const load = useCallback(async () => {
-    const [p, fw, fg] = await Promise.all([
+    const [p, fw, fg, st] = await Promise.all([
       api(isSelf ? "/api/v1/me/" : `/api/v1/users/${userId}/`),
       api(`/api/v1/users/${userId}/followers/`),
       api(`/api/v1/users/${userId}/following/`),
+      api(`/api/v1/users/${userId}/stats/`),
     ]);
     setProfile(p);
+    setStats(st);
     setFollowers(fw.results);
     setFollowing(fg.results);
     setIsFollowing(fw.results.some((r) => r.user.id === self.id));
@@ -131,6 +190,16 @@ export default function Profile({ me = false }) {
           <button disabled={busy}>Save</button>
         </form>
       )}
+
+      <HostStats
+        stats={stats}
+        onShare={async () => {
+          await navigator.clipboard.writeText(
+            `${window.location.origin}/users/${userId}`
+          );
+          toast("Profile link copied — put it in your bio.");
+        }}
+      />
 
       <div className="row wrap" style={{ alignItems: "stretch" }}>
         <UserList title="Followers" rows={followers} />

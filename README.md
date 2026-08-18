@@ -3,7 +3,7 @@
 A full-stack app for live audio rooms — real-time voice (WebRTC), live chat and
 presence (websockets), follows, virtual gifting with a double-entry wallet ledger,
 and moderation. Django REST + Channels backend, React frontend.
-**Postgres + Redis + Celery, 72 tests, Dockerised.**
+**Postgres + Redis + Celery, 103 tests, Dockerised.**
 
 Built the way live social products (think FRND / Clubhouse) actually work: people join
 audio rooms, follow hosts, send virtual gifts, and get moderated. The gifting economy is
@@ -23,7 +23,7 @@ destroyed, or double-spent under concurrent load.
 | Cache     | Redis (versioned live-feed cache, 30 s TTL) |
 | Async     | Celery + Redis broker (notification fan-out) |
 | Auth      | Phone-first OTP → JWT (simplejwt) |
-| Testing   | pytest + pytest-django + factory_boy — 61 tests |
+| Testing   | pytest + pytest-django + factory_boy — 103 tests |
 | Container | Docker + docker-compose          |
 | CI        | GitHub Actions (Postgres + Redis service containers) |
 
@@ -112,7 +112,12 @@ Interactive docs at `/api/v1/docs/`, OpenAPI schema at `/api/v1/schema/`.
 | GET | `/api/v1/wallet/` | Balance + recent ledger entries |
 | POST | `/api/v1/wallet/topup/` | Credit coins (payment-gateway stub) |
 | GET | `/api/v1/gift-types/` | Gift catalog |
-| POST | `/api/v1/rooms/{id}/gifts/` | Send a gift (Idempotency-Key required, throttled 30/min) |
+| POST | `/api/v1/rooms/{id}/gifts/` | Send a gift; omit `recipient_id` to split it across the stage |
+| GET/POST | `/api/v1/rooms/{id}/questions/` | Paid question queue (stake escrowed on ask) |
+| POST | `/api/v1/rooms/{id}/questions/{qid}/answer/` | Release the stake to the host |
+| POST | `/api/v1/rooms/{id}/questions/{qid}/decline/` | Refund the asker |
+| GET/POST | `/api/v1/rooms/{id}/pledges/` | Pledge toward a room goal (all-or-nothing escrow) |
+| GET | `/api/v1/users/{id}/stats/` | Public, ledger-derived host reputation |
 | GET | `/api/v1/rooms/{id}/gifts/history/` | Gifts sent in a room |
 | GET | `/api/v1/rooms/{id}/messages/` | Chat history (last 50) |
 | POST | `/api/v1/rooms/{id}/participants/{uid}/role/` | Promote/demote speaker (host only) |
@@ -175,6 +180,31 @@ derivable as `SUM(ledger.delta_coins)`. Coins move only inside `services.send_gi
 Verified by a concurrency test that fires 10 simultaneous gifts from a wallet holding
 enough for 3 and asserts exactly 3 succeed with the balance never going negative
 (runs against Postgres in CI; SQLite has no row locks, so it auto-skips locally).
+
+### Escrow: coins in flight live in a real wallet
+
+Paid questions and goal pledges hold coins *between* two people. Rather than
+marking a row "pending" and hoping the balance maths works out, the coins
+physically move into a system escrow wallet (`Wallet.escrow()`, `user=NULL`)
+and leave it exactly once — to the host when a question is answered or a goal
+is funded, or back to the payer on decline / room end. Because escrow is a
+real account, the global invariant `SUM(all ledger deltas) == total top-ups`
+holds at *every* instant, including mid-flight. Tests assert exactly that
+across full lifecycles.
+
+Three product features fall out of this one primitive:
+
+- **Paid question queue** — listeners stake coins on a question; the queue is
+  ordered by stake, and the host is paid only on answering. Unanswered
+  questions are refunded automatically when the room ends.
+- **Goal rooms** — Kickstarter mechanics inside a live room. Pledges are
+  escrowed; reaching the target settles everything to the host, ending short
+  refunds every backer.
+- **Co-host revenue splits** — a gift sent to the *room* (no `recipient_id`)
+  is divided across everyone on stage in proportion to their speaking time,
+  measured from `RoomParticipant.speaker_since`. Shares use the
+  largest-remainder method so the parts sum to exactly the gift value —
+  naive rounding would create or destroy coins, which the ledger forbids.
 
 ### Idempotency keys
 

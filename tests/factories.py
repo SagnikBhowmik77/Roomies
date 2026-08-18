@@ -1,4 +1,5 @@
 import factory
+from django.utils import timezone
 from factory.django import DjangoModelFactory
 
 from apps.economy.models import GiftType
@@ -30,7 +31,10 @@ class RoomFactory(DjangoModelFactory):
     def seat_host(obj, create, extracted, **kwargs):
         if create:
             RoomParticipant.objects.create(
-                room=obj, user=obj.host, role=RoomParticipant.Role.HOST
+                room=obj,
+                user=obj.host,
+                role=RoomParticipant.Role.HOST,
+                speaker_since=timezone.now(),
             )
 
 

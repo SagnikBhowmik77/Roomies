@@ -109,7 +109,10 @@ class RoomViewSet(
     def perform_create(self, serializer):
         room = serializer.save(host=self.request.user)
         RoomParticipant.objects.create(
-            room=room, user=self.request.user, role=RoomParticipant.Role.HOST
+            room=room,
+            user=self.request.user,
+            role=RoomParticipant.Role.HOST,
+            speaker_since=timezone.now(),
         )
         room_went_live.send(sender=Room, room=room)
         # Fan-out happens off the request path: creating a room stays O(1)
@@ -118,12 +121,20 @@ class RoomViewSet(
 
     @action(detail=True, methods=["post"])
     def end(self, request, pk=None):
+        from apps.economy import services as economy
+
         room = self.get_object()
         if room.status == Room.Status.ENDED:
             raise AlreadyEndedError()
         room.end()
+        # nobody keeps money for work that never happened
+        refunded_questions = economy.refund_pending_questions(room)
+        refunded_pledges = 0 if room.goal_reached_at else economy.refund_pledges(room)
         room_ended.send(sender=Room, room=room)
-        return Response(RoomSerializer(self._reload(room.pk)).data)
+        data = RoomSerializer(self._reload(room.pk)).data
+        data["refunded_questions"] = refunded_questions
+        data["refunded_pledges"] = refunded_pledges
+        return Response(data)
 
     @action(detail=True, methods=["post"])
     def join(self, request, pk=None):
@@ -211,7 +222,12 @@ class RoomViewSet(
         if participant.role == RoomParticipant.Role.HOST:
             raise InvalidRoleError("The host's role cannot be changed.")
         participant.role = role
-        participant.save(update_fields=("role",))
+        # stage time starts when they're promoted and stops when demoted —
+        # this is the weight behind proportional revenue splits
+        participant.speaker_since = (
+            timezone.now() if role == RoomParticipant.Role.SPEAKER else None
+        )
+        participant.save(update_fields=("role", "speaker_since"))
         # push the change to everyone connected to the room
         async_to_sync(get_channel_layer().group_send)(
             f"room_{room.id}",

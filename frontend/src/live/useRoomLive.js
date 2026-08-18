@@ -202,6 +202,9 @@ export function useRoomLive(roomId, selfId, { onPresence } = {}) {
           break;
         }
         case "role":
+        case "question":
+        case "goal":
+          // server-side state changed for everyone — refetch room data
           presenceRef.current?.();
           break;
         default:

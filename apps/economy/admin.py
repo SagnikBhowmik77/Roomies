@@ -1,13 +1,27 @@
 from django.contrib import admin
 
-from .models import Gift, GiftType, LedgerEntry, Wallet
+from .models import Gift, GiftType, GoalPledge, LedgerEntry, Question, Wallet
 
 
 @admin.register(Wallet)
 class WalletAdmin(admin.ModelAdmin):
-    list_display = ("id", "user", "balance_coins")
+    list_display = ("id", "user", "label", "balance_coins")
     raw_id_fields = ("user",)
-    search_fields = ("user__phone",)
+    search_fields = ("user__phone", "label")
+
+
+@admin.register(Question)
+class QuestionAdmin(admin.ModelAdmin):
+    list_display = ("id", "room", "asker", "coins", "status", "created_at")
+    list_filter = ("status",)
+    raw_id_fields = ("room", "asker")
+
+
+@admin.register(GoalPledge)
+class GoalPledgeAdmin(admin.ModelAdmin):
+    list_display = ("id", "room", "user", "coins", "status", "created_at")
+    list_filter = ("status",)
+    raw_id_fields = ("room", "user")
 
 
 @admin.register(GiftType)

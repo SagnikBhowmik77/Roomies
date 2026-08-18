@@ -536,6 +536,96 @@ select option { background: var(--surface-2); }
 .chips .cnt { color: var(--faint); font-size: 11px; margin-left: 4px; }
 .chips button.on .cnt { color: rgba(23, 20, 16, 0.55); }
 
+/* ============================================================
+   Paid question queue
+   ============================================================ */
+.q-item {
+  display: flex; gap: 12px; align-items: flex-start;
+  padding: 13px; border-radius: var(--r);
+  background: rgba(255, 255, 255, 0.025);
+  border: 1px solid var(--line);
+  transition: border-color 0.15s;
+}
+.q-item.top { border-color: rgba(232, 163, 61, 0.45); background: var(--amber-soft); }
+.q-item.resolved { opacity: 0.5; }
+.q-item .stake {
+  display: flex; flex-direction: column; align-items: center; gap: 1px;
+  min-width: 54px; padding: 6px 8px; border-radius: 10px;
+  background: rgba(0, 0, 0, 0.25); border: 1px solid var(--line);
+}
+.q-item.top .stake { border-color: rgba(232, 163, 61, 0.5); }
+.q-item .stake b {
+  font-family: var(--serif); font-size: 19px; line-height: 1;
+  color: var(--amber); font-variant-numeric: tabular-nums;
+}
+.q-item .stake small { font-size: 9px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--faint); }
+.q-item .body { flex: 1; min-width: 0; }
+.q-item .qtext { font-size: 13.5px; line-height: 1.45; }
+.q-item .qmeta { display: flex; align-items: center; gap: 7px; margin-top: 6px; }
+.q-item .actions { display: flex; gap: 6px; }
+.q-item .actions button { padding: 5px 11px; font-size: 11.5px; }
+
+.escrow-note {
+  display: flex; align-items: center; gap: 7px;
+  font-size: 11.5px; color: var(--faint);
+  padding: 9px 12px; border-radius: 10px;
+  background: rgba(255, 255, 255, 0.02); border: 1px dashed var(--line);
+}
+
+.ask-form { display: grid; grid-template-columns: 1fr 96px auto; gap: 8px; }
+@media (max-width: 620px) { .ask-form { grid-template-columns: 1fr; } }
+
+/* ============================================================
+   Goal rooms
+   ============================================================ */
+.goal-card { display: flex; flex-direction: column; gap: 14px; }
+.goal-head { display: flex; align-items: flex-end; justify-content: space-between; gap: 12px; }
+.goal-head .amount {
+  font-family: var(--serif); font-size: 30px; line-height: 1; color: var(--amber);
+  font-variant-numeric: tabular-nums;
+}
+.goal-head .amount span { font-size: 15px; color: var(--faint); }
+.meter {
+  height: 10px; border-radius: 999px; overflow: hidden;
+  background: rgba(255, 255, 255, 0.06); border: 1px solid var(--line);
+}
+.meter i {
+  display: block; height: 100%; border-radius: 999px;
+  background: linear-gradient(90deg, var(--amber), #f6c877);
+  transition: width 0.6s cubic-bezier(0.2, 0.9, 0.3, 1);
+}
+.meter.done i { background: linear-gradient(90deg, var(--green), #7bf0c0); }
+.goal-pledge { display: grid; grid-template-columns: 1fr auto; gap: 8px; }
+.backers { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+
+/* ============================================================
+   Host reputation
+   ============================================================ */
+.stat-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 10px; }
+.stat-tile {
+  padding: 14px 16px; border-radius: var(--r);
+  background: rgba(255, 255, 255, 0.025); border: 1px solid var(--line);
+}
+.stat-tile .v {
+  font-family: var(--serif); font-size: 26px; line-height: 1.1;
+  font-variant-numeric: tabular-nums;
+}
+.stat-tile .v.gold { color: var(--amber); }
+.stat-tile .k {
+  font-size: 10px; font-weight: 700; letter-spacing: 0.11em;
+  text-transform: uppercase; color: var(--faint); margin-top: 5px;
+}
+.share-bar {
+  display: flex; align-items: center; gap: 10px;
+  padding: 11px 14px; border-radius: var(--r);
+  background: rgba(255, 255, 255, 0.025); border: 1px dashed var(--line);
+  font-size: 12.5px; color: var(--dim);
+}
+.share-bar code {
+  font-family: ui-monospace, monospace; font-size: 11.5px;
+  color: var(--text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: 1;
+}
+
 .searchbox { position: relative; flex: 1; max-width: 260px; }
 .searchbox input { padding-left: 36px; }
 .searchbox svg { position: absolute; left: 12px; top: 50%; transform: translateY(-50%); color: var(--faint); }
