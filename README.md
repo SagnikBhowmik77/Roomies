@@ -39,10 +39,17 @@ erDiagram
     Room ||--o{ RoomParticipant : "seats"
     User ||--o{ RoomParticipant : "occupies"
     Wallet ||--o{ LedgerEntry : "append-only"
-    Gift ||--|{ LedgerEntry : "debit + credit"
-    User ||--o{ Gift : "sends/receives"
+    Gift ||--|{ LedgerEntry : "debit and credit"
+    Question ||--|{ LedgerEntry : "escrow then settle"
+    GoalPledge ||--|{ LedgerEntry : "escrow then settle"
+    User ||--o{ Gift : "sends"
     Room ||--o{ Gift : "in"
     GiftType ||--o{ Gift : "prices"
+    Room ||--o{ Question : "queues"
+    Room ||--o{ GoalPledge : "funded by"
+    Room ||--o{ RoomMessage : "chat"
+    Room ||--o{ Caption : "transcript"
+    Room ||--o| RoomRecording : "recorded as"
     User ||--o{ Report : "files"
     User ||--o{ Notification : "receives"
 ```
@@ -51,12 +58,28 @@ Request path for a gift:
 
 ```mermaid
 sequenceDiagram
-    Client->>API: POST /rooms/{id}/gifts/ (Idempotency-Key)
-    API->>DB: BEGIN; SELECT wallets FOR UPDATE (pk order)
+    Client->>API: POST a gift with an Idempotency-Key
+    API->>DB: BEGIN, then SELECT wallets FOR UPDATE in pk order
     API->>DB: check balance, INSERT gift
-    API->>DB: INSERT ledger debit + credit (sum = 0)
-    API->>DB: UPDATE cached balances; COMMIT
-    API-->>Client: 201 (or 200 replay on retry)
+    API->>DB: INSERT ledger debit and credit, netting to zero
+    API->>DB: UPDATE cached balances, COMMIT
+    API-->>Client: 201 created, or 200 replaying the original
+```
+
+Escrow lifecycle, shared by paid questions and goal pledges:
+
+```mermaid
+sequenceDiagram
+    participant Payer
+    participant Escrow as Escrow wallet
+    participant Host
+    Payer->>Escrow: stake coins up front
+    Note over Escrow: coins are held in a real account, the host is not paid yet
+    alt question answered, or goal funded
+        Escrow->>Host: release the stake
+    else declined, withdrawn, or the room ends short
+        Escrow->>Payer: refund in full
+    end
 ```
 
 ## Setup (three commands)
