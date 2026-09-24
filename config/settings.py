@@ -48,6 +48,7 @@ INSTALLED_APPS = [
 
 MIDDLEWARE = [
     "django.middleware.security.SecurityMiddleware",
+    "whitenoise.middleware.WhiteNoiseMiddleware",
     "django.contrib.sessions.middleware.SessionMiddleware",
     "django.middleware.common.CommonMiddleware",
     "django.middleware.csrf.CsrfViewMiddleware",
@@ -213,6 +214,30 @@ USE_TZ = True
 
 STATIC_URL = "static/"
 STATIC_ROOT = BASE_DIR / "staticfiles"
+# The built React app is collected into STATIC_ROOT alongside Django's own
+# static files, so one process serves the API, the websockets and the SPA.
+_FRONTEND_DIST = BASE_DIR / "frontend" / "dist"
+STATICFILES_DIRS = [_FRONTEND_DIST] if _FRONTEND_DIST.is_dir() else []
+STORAGES = {
+    "default": {"BACKEND": "django.core.files.storage.FileSystemStorage"},
+    "staticfiles": {
+        "BACKEND": "whitenoise.storage.CompressedStaticFilesStorage"
+        if not DEBUG
+        else "django.contrib.staticfiles.storage.StaticFilesStorage"
+    },
+}
+# Render (and any proxy) terminates TLS upstream.
+CSRF_TRUSTED_ORIGINS = [
+    o.strip()
+    for o in os.getenv("DJANGO_CSRF_TRUSTED_ORIGINS", "").split(",")
+    if o.strip()
+]
+SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
+# Render injects the public hostname at runtime, so it cannot be baked in.
+_RENDER_HOST = os.getenv("RENDER_EXTERNAL_HOSTNAME")
+if _RENDER_HOST:
+    ALLOWED_HOSTS.append(_RENDER_HOST)
+    CSRF_TRUSTED_ORIGINS.append("https://" + _RENDER_HOST)
 
 # Room recordings are uploaded here. Local disk is fine at this stage; the
 # swap to object storage is a one-line DEFAULT_FILE_STORAGE change.

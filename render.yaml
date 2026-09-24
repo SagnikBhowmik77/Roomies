@@ -1,0 +1,18 @@
+services:
+  - type: web
+    name: roomies
+    runtime: docker
+    dockerfilePath: ./Dockerfile.render
+    plan: free
+    healthCheckPath: /
+    envVars:
+      - key: DJANGO_DEBUG
+        value: "0"
+      - key: DJANGO_SECRET_KEY
+        generateValue: true
+      # The demo has no SMS provider, so the fixed OTP flow stays on and the
+      # code is echoed in the response. Documented in the README.
+      - key: OTP_DEV_MODE
+        value: "1"
+      - key: DEV_OTP_CODE
+        value: "123456"
